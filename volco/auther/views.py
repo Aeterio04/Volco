@@ -69,5 +69,24 @@ def loginfunc(request):
         return Response({'success': False, 'message': 'Invalid Credentials'}, status=400)
 
 
+def signupfunc(request):
+    if request.method=='POST':
+        username=request.data.get('username')
+        email=request.data.get('email')
+        password=request.data.get('password')
+        print(username,email,password)
+
+        if customUser.objects.filter(email=email).exists():
+            return Response({'success': False, 'message': 'Email already exists.'}, status=400)
+        
+        if customUser.objects.filter(username=username).exists():
+            return Response({'success': False, 'message': 'Username already exists.'}, status=400)
+
+        user=customUser.objects.create_user(username=username,email=email,password=password,usertype=usertype,slug=slugify(username))
+        user.save()
+        print("user created")
+        return Response({'success': True, 'message': 'User created successfully.'}, status=201)
+    else:
+        return Response({'success': False, 'message': 'Invalid request method.'}, status=400)
 
 # Create your views here.

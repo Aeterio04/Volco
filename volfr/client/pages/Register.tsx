@@ -12,15 +12,17 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useState, useEffect } from "react";
+import axios from "axios";
+import Cookies from "js-cookie";
 
 const volunteerSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
-  university: z.string().min(2, "University name is required"),
+  contact: z.string().min(2, "Contact is required"),
   major: z.string().min(2, "Major/field of study is required"),
-  year: z.string().min(1, "Academic year is required"),
+  location: z.string().min(1, "Please select your nearest Location"),
   interests: z.string().min(10, "Please describe your interests (minimum 10 characters)"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -60,7 +62,7 @@ export default function Register() {
       setActiveTab("ngo");
     }
   }, [location.search]);
-  
+
   const volunteerForm = useForm<VolunteerForm>({
     resolver: zodResolver(volunteerSchema),
     defaultValues: {
@@ -68,9 +70,9 @@ export default function Register() {
       email: "",
       password: "",
       confirmPassword: "",
-      university: "",
+      contact: "",
       major: "",
-      year: "",
+      location: "",
       interests: "",
     },
   });
@@ -94,13 +96,32 @@ export default function Register() {
   const onVolunteerSubmit = async (data: VolunteerForm) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual registration logic
       console.log("Volunteer registration data:", data);
+
+      // Get CSRF token (from Django cookie)
+      const csrftoken = Cookies.get("csrftoken");
+      console.log("CSRF Token:", csrftoken);
+      // Send data using fetch
+      const response = await fetch("http://127.0.0.1:8000/api/volunteer/register/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken || "",
+        },
+        credentials: "include", // sends cookies (important for CSRF)
+        body: JSON.stringify(data),
+      });
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      navigate("/student-dashboard");
+      console.log("Server response status:", response.status);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error || `Server Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Server response:", result);
+
+      navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
     } finally {
@@ -113,10 +134,10 @@ export default function Register() {
     try {
       // TODO: Implement actual registration logic
       console.log("NGO registration data:", data);
-      
+
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       navigate("/ngo-dashboard");
     } catch (error) {
       console.error("Registration error:", error);
@@ -197,7 +218,7 @@ export default function Register() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={volunteerForm.control}
                         name="email"
@@ -233,7 +254,7 @@ export default function Register() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={volunteerForm.control}
                         name="confirmPassword"
@@ -255,36 +276,37 @@ export default function Register() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={volunteerForm.control}
-                        name="university"
+                        name="contact"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>University</FormLabel>
+                            <FormLabel>Contact</FormLabel>
                             <FormControl>
-                              <Input placeholder="University of Example" {...field} />
+                              <Input placeholder="Contact Info" {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={volunteerForm.control}
-                        name="year"
+                        name="location"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Academic Year</FormLabel>
+                            <FormLabel>Location</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
                                 <SelectTrigger>
-                                  <SelectValue placeholder="Select year" />
+                                  <SelectValue placeholder="Select Your nearest Location" />
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="freshman">Freshman</SelectItem>
-                                <SelectItem value="sophomore">Sophomore</SelectItem>
-                                <SelectItem value="junior">Junior</SelectItem>
-                                <SelectItem value="senior">Senior</SelectItem>
-                                <SelectItem value="graduate">Graduate</SelectItem>
+                                <SelectItem value="Kalyani Nagar">Kalyani Nagar</SelectItem>
+                                <SelectItem value="Hinjewadi">Hinjewadi</SelectItem>
+                                <SelectItem value="Shaniwar Peth">Shaniwar Peth</SelectItem>
+                                <SelectItem value="Koregaon Park">Koregaon Park</SelectItem>
+                                <SelectItem value="Pashan">Pashan</SelectItem>
+                                <SelectItem value="Sadashiv Peth">Sadashiv Peth</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -314,10 +336,10 @@ export default function Register() {
                         <FormItem>
                           <FormLabel>Volunteer Interests</FormLabel>
                           <FormControl>
-                            <Textarea 
+                            <Textarea
                               placeholder="Describe your volunteer interests, causes you care about, and types of activities you'd like to participate in..."
                               className="min-h-20"
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormDescription>
@@ -368,7 +390,7 @@ export default function Register() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={ngoForm.control}
                         name="email"
@@ -404,7 +426,7 @@ export default function Register() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={ngoForm.control}
                         name="confirmPassword"
@@ -440,7 +462,7 @@ export default function Register() {
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={ngoForm.control}
                         name="phone"
@@ -477,10 +499,10 @@ export default function Register() {
                         <FormItem>
                           <FormLabel>Address</FormLabel>
                           <FormControl>
-                            <Textarea 
+                            <Textarea
                               placeholder="123 Main Street, City, State, ZIP Code"
                               className="min-h-16"
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -495,10 +517,10 @@ export default function Register() {
                         <FormItem>
                           <FormLabel>Organization Description</FormLabel>
                           <FormControl>
-                            <Textarea 
+                            <Textarea
                               placeholder="Describe your organization's mission, values, and what you do..."
                               className="min-h-24"
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormDescription>
@@ -516,10 +538,10 @@ export default function Register() {
                         <FormItem>
                           <FormLabel>Focus Areas</FormLabel>
                           <FormControl>
-                            <Textarea 
+                            <Textarea
                               placeholder="Environment, Education, Health, Community Development, etc."
                               className="min-h-20"
-                              {...field} 
+                              {...field}
                             />
                           </FormControl>
                           <FormDescription>

@@ -247,7 +247,7 @@ export default function Index() {
               </Link>
             </Button>
             <Button size="lg" variant="outline" className="border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground hover:text-primary" asChild>
-              <Link to="/events" className="flex items-center gap-2">
+              <Link to="/events" className="flex items-center gap-2" style={{ color: "black" }}>
                 <Calendar className="h-4 w-4" />
                 Browse Events
               </Link>

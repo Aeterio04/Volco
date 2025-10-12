@@ -36,7 +36,7 @@ import {
   Globe,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // Mock data for demonstration
 const mockRecommendedEvents = [
@@ -149,6 +149,59 @@ export default function StudentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [causeFilter, setCauseFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("discover");
+
+  const [user, setUser] = useState(() => {
+    // Try to load from localStorage, else use default
+    const stored = localStorage.getItem("studentUser");
+    if (stored) return JSON.parse(stored);
+    return {
+      username: "Sarah Johnson",
+      email: "sarah@university.edu",
+      location: "State University",
+      slug: "sarah-johnson",
+      major: "Computer Science",
+      contact: "123-456-7890",
+    };
+  });
+  
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
+
+        const response = await fetch("http://127.0.0.1:8000/api/user/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data);
+          console.log("Fetched user data:", data);
+          localStorage.setItem("studentUser", JSON.stringify(data));
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  if (!user) return <p>Loading user info...</p>;
+
+ 
+
+
 
   const filteredEvents = mockRecommendedEvents.filter((event) => {
     const matchesSearch =

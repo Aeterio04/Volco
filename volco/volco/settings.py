@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 from pathlib import Path
 
+from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -36,9 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    'rest_framework',
+    "rest_framework.authtoken",
     "corsheaders",
     'django.contrib.staticfiles',
-    'auther'
+    'auther',
+    'rest_framework_simplejwt.token_blacklist',
+    'userfuncs'
 ]
 
 MIDDLEWARE = [
@@ -72,16 +77,41 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'volco.wsgi.application'
-
-CORS_ALLOW_ALL_ORIGINS = True
-
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",  # Default React port
-    "http://127.0.0.1:8080",
+    "http://localhost:8080",      # React dev
+    "http://127.0.0.1:8080",      # sometimes React uses this
 ]
 
+CORS_ALLOW_CREDENTIALS = True  # allow cookies for CSRF
+
+CORS_ALLOW_HEADERS = [
+    "content-type",
+    "x-csrftoken",
+    "authorization",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+]
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=2),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ROTATE_REFRESH_TOKENS': True,  # refresh token rotation
+    'BLACKLIST_AFTER_ROTATION': True,  # invalidate old refresh tokens
+}
 
 DATABASES = {
     'default': {

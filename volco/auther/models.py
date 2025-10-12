@@ -31,4 +31,8 @@ class ngo(models.Model):
     ngoid = models.CharField(max_length=100, blank=True, null=True)
     address= models.CharField(max_length=255, blank=True, null=True)
 
+class student(models.Model):
+    user= models.OneToOneField(customUser, on_delete=models.CASCADE, primary_key=True)
+    major= models.CharField(max_length=255, blank=True, null=True)
+    college= models.CharField(max_length=255, blank=True, null=True)
 # Create your models here.

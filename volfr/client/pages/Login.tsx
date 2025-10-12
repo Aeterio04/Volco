@@ -30,21 +30,50 @@ export default function Login() {
   });
 
   const onSubmit = async (data: LoginForm) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("http://127.0.0.1:8000/api/auth/login/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-    } finally {
-      setIsLoading(false);
+  setIsLoading(true);
+  try {
+    const response = await fetch("http://127.0.0.1:8000/api/auth/login/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+      credentials: "include", // important if backend sets HttpOnly refresh cookie
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      console.error("Login failed:", responseData);
+      // TODO: show error to user
+      return;
     }
-  };
+
+    // ✅ Extract tokens
+    const accessToken = responseData.access;
+    const refreshToken = responseData.refresh; // optional if stored in cookie
+
+    // ✅ Store access token (short-lived, memory/localStorage)
+    localStorage.setItem("accessToken", accessToken);
+
+    // ✅ If refresh token is returned in JSON, store in HttpOnly cookie via backend
+    // Best practice: backend sets refresh token cookie automatically
+
+    // ✅ Optionally, store user info
+
+    console.log("Login successful:");
+    navigate("/student-dashboard");
+
+    // Redirect to dashboard or update app state
+    // navigate("/dashboard"); or set global auth state
+
+  } catch (error) {
+    console.error("Login error:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-volunteer-50 to-volunteer-100">

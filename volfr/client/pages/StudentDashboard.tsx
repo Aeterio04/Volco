@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { set } from "date-fns";
 
 // Mock data for demonstration
 const mockRecommendedEvents = [
@@ -54,7 +55,7 @@ const mockRecommendedEvents = [
       "Help clean and maintain our community garden. No experience needed!",
     skills: ["Gardening", "Physical Labor"],
     difficulty: "Easy",
-    impact: "High",
+
   },
   {
     id: 2,
@@ -98,8 +99,8 @@ const mockRegisteredEvents = [
     date: "2024-02-10",
     time: "7:00 AM - 11:00 AM",
     location: "Pashan Lake",
-    status: "Confirmed",
-    hoursLogged: 4,
+    status: "Upcoming",
+
   },
   {
     id: 5,
@@ -109,8 +110,7 @@ const mockRegisteredEvents = [
     date: "2024-02-18",
     time: "1:00 PM - 4:00 PM",
     location: "Koregaon Park Senior Center",
-    status: "Confirmed",
-    hoursLogged: 0,
+    status: "Upcoming",
   },
 ];
 
@@ -149,7 +149,15 @@ export default function StudentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [causeFilter, setCauseFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("discover");
-
+  const [RecommendedEvents, setRecommendedEvents] = useState(mockRecommendedEvents);
+  const [RegisteredEvents, setRegisteredEvents] = useState(mockRegisteredEvents);
+  const [userStats, setUserStats] = useState({
+    total_events: 0,
+    user_events: 0,
+    completed_events: 0,
+    organizations_helped: 0,
+    impactLevel: "Beginner",
+  });
   const [user, setUser] = useState(() => {
     // Try to load from localStorage, else use default
     const stored = localStorage.getItem("studentUser");
@@ -163,7 +171,7 @@ export default function StudentDashboard() {
       contact: "123-456-7890",
     };
   });
-  
+
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -182,6 +190,7 @@ export default function StudentDashboard() {
         if (response.ok) {
           const data = await response.json();
           setUser(data);
+          setRecommendedEvents(data.recommended_events);
           console.log("Fetched user data:", data);
           localStorage.setItem("studentUser", JSON.stringify(data));
         } else if (response.status === 401) {
@@ -193,17 +202,71 @@ export default function StudentDashboard() {
         console.error("Error fetching user data:", error);
       }
     };
+    const fetchUserStats = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
 
+        const response = await fetch("http://127.0.0.1:8000/api/userstats/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserStats(data);
+          console.log("Fetched user stats:", data);
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    const fetchRegisteredEvents = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
+
+        const response = await fetch("http://127.0.0.1:8000/api/userregistrations/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setRegisteredEvents(data);
+          console.log("Fetched user registered events:", data);
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+    fetchUserStats();
     fetchUserData();
+    fetchRegisteredEvents();
   }, []);
 
   if (!user) return <p>Loading user info...</p>;
 
- 
 
 
 
-  const filteredEvents = mockRecommendedEvents.filter((event) => {
+
+  const filteredEvents = RecommendedEvents.filter((event) => {
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.organization.toLowerCase().includes(searchQuery.toLowerCase());
@@ -282,7 +345,7 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
-                Welcome back, Sarah!
+                Welcome back, {user.username}!
               </h1>
               <p className="text-muted-foreground mt-1">
                 Ready to make a difference today?
@@ -302,12 +365,12 @@ export default function StudentDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Volunteer Hours
+                Events Participated
               </CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">47</div>
+              <div className="text-2xl font-bold">{userStats.user_events}</div>
               <p className="text-xs text-muted-foreground">+12 this month</p>
             </CardContent>
           </Card>
@@ -320,8 +383,8 @@ export default function StudentDashboard() {
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">+2 this month</p>
+              <div className="text-2xl font-bold">{userStats.completed_events}</div>
+              <p className="text-xs text-muted-foreground"></p>
             </CardContent>
           </Card>
 
@@ -333,7 +396,7 @@ export default function StudentDashboard() {
               <Globe className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">{userStats.organizations_helped}</div>
               <p className="text-xs text-muted-foreground">
                 All different causes
               </p>
@@ -348,7 +411,7 @@ export default function StudentDashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">Rising Star</div>
+              <div className="text-2xl font-bold">{userStats.impactLevel}</div>
               <p className="text-xs text-muted-foreground">Keep it up!</p>
             </CardContent>
           </Card>
@@ -512,7 +575,7 @@ export default function StudentDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockRegisteredEvents.map((event) => (
+                  {RegisteredEvents.map((event) => (
                     <div
                       key={event.id}
                       className="flex items-center justify-between p-4 border rounded-lg"
@@ -554,45 +617,43 @@ export default function StudentDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Lake Cleanup Day</p>
-                      <p className="text-sm text-muted-foreground">
-                        Ocean Conservation Society
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Feb 10, 2024
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="mb-1">
-                        Completed
-                      </Badge>
-                      <p className="text-sm text-muted-foreground">
-                        4 hours logged
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Library Reading Program</p>
-                      <p className="text-sm text-muted-foreground">
-                        City Library Foundation
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Feb 5, 2024
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="mb-1">
-                        Completed
-                      </Badge>
-                      <p className="text-sm text-muted-foreground">
-                        3 hours logged
-                      </p>
-                    </div>
-                  </div>
+                  {RegisteredEvents && RegisteredEvents.filter(event => event.status === "Completed").length > 0 ? (
+                    RegisteredEvents
+                      .filter(event => event.status === "Completed")
+                      .slice(0, 2)
+                      .map((event) => (
+                        <div
+                          key={event.id}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.organization}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="mb-1">
+                              {event.status}
+                            </Badge>
+                            <p className="text-sm text-muted-foreground">
+                              {event.time}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No completed events yet
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -681,11 +742,11 @@ export default function StudentDashboard() {
                       <AvatarFallback className="text-lg">SJ</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="text-lg font-medium">Sarah Johnson</h3>
+                      <h3 className="text-lg font-medium">{user.username}</h3>
                       <p className="text-muted-foreground">
-                        Computer Science Major
+
                       </p>
-                      <p className="text-muted-foreground">State University</p>
+                      <p className="text-muted-foreground">{user.college}</p>
                     </div>
                   </div>
 
@@ -693,21 +754,21 @@ export default function StudentDashboard() {
                     <div>
                       <p className="font-medium">Email</p>
                       <p className="text-muted-foreground">
-                        sarah@university.edu
+                        {user.email}
                       </p>
                     </div>
                     <div>
                       <p className="font-medium">Academic Year</p>
-                      <p className="text-muted-foreground">Junior</p>
+                      <p className="text-muted-foreground">{user.year}</p>
                     </div>
                     <div>
                       <p className="font-medium">Volunteer Since</p>
-                      <p className="text-muted-foreground">September 2023</p>
+                      <p className="text-muted-foreground">{user.usersince}</p>
                     </div>
                     <div>
-                      <p className="font-medium">Preferred Causes</p>
+                      <p className="font-medium">Total Activites</p>
                       <p className="text-muted-foreground">
-                        Education, Environment
+                        {userStats.user_events} events
                       </p>
                     </div>
                   </div>
@@ -728,19 +789,30 @@ export default function StudentDashboard() {
                     <div>
                       <p className="font-medium text-sm mb-2">Skills</p>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">Teaching</Badge>
-                        <Badge variant="outline">Programming</Badge>
-                        <Badge variant="outline">Communication</Badge>
-                        <Badge variant="outline">Leadership</Badge>
+                        {user.skills && user.skills.length > 0 ? (
+                          user.skills.map((skill) => (
+                            <Badge key={skill} variant="outline">
+                              {skill}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No skills added yet</p>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <p className="font-medium text-sm mb-2">Interests</p>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">Education</Badge>
-                        <Badge variant="outline">Environment</Badge>
-                        <Badge variant="outline">Technology</Badge>
+                        {user.interests && user.interests.length > 0 ? (
+                          user.interests.map((interest) => (
+                            <Badge key={interest} variant="outline">
+                              {interest}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No interests added yet</p>
+                        )}
                       </div>
                     </div>
                   </div>

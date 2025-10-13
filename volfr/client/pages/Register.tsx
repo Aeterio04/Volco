@@ -23,7 +23,9 @@ const volunteerSchema = z.object({
   contact: z.string().min(2, "Contact is required"),
   major: z.string().min(2, "Major/field of study is required"),
   location: z.string().min(1, "Please select your nearest Location"),
-  interests: z.string().min(10, "Please describe your interests (minimum 10 characters)"),
+  interests: z.array(z.string()).min(1, "Please select at least one interest"),
+  skills: z.array(z.string()).min(1, "Please select at least one skill"),
+  year: z.string().min(1, "Please select your academic year"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -73,7 +75,9 @@ export default function Register() {
       contact: "",
       major: "",
       location: "",
-      interests: "",
+      interests: [""],
+      skills: [""],
+      year: "",
     },
   });
 
@@ -111,7 +115,7 @@ export default function Register() {
         credentials: "include", // sends cookies (important for CSRF)
         body: JSON.stringify(data),
       });
-      
+
       console.log("Server response status:", response.status);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -314,8 +318,8 @@ export default function Register() {
                         )}
                       />
                     </div>
-
-                    <FormField
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
                       control={volunteerForm.control}
                       name="major"
                       render={({ field }) => (
@@ -328,6 +332,33 @@ export default function Register() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                        control={volunteerForm.control}
+                        name="year"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Academic Year</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select Your Academic Year" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Freshman">Freshman</SelectItem>
+                                <SelectItem value="Sophomore">Sophomore</SelectItem>
+                                <SelectItem value="Junior">Junior</SelectItem>
+                                <SelectItem value="Senior">Senior</SelectItem>
+                               
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                    </div>
+                    
 
                     <FormField
                       control={volunteerForm.control}
@@ -335,16 +366,93 @@ export default function Register() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Volunteer Interests</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Describe your volunteer interests, causes you care about, and types of activities you'd like to participate in..."
-                              className="min-h-20"
-                              {...field}
-                            />
-                          </FormControl>
                           <FormDescription>
-                            This helps us match you with relevant volunteer opportunities
+                            Select all areas you're interested in volunteering
                           </FormDescription>
+                          <FormControl>
+                            <div className="flex flex-wrap gap-3 mt-2">
+                              {[
+                                'Education',
+                                'Environment',
+                                'Health',
+                                'Community Development',
+                                'Animal Welfare',
+                                'Arts and Culture'
+                              ].map((interest) => {
+                                const isSelected = field.value?.includes(interest);
+                                return (
+                                  <button
+                                    key={interest}
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedValue = isSelected
+                                        ? field.value?.filter((val) => val !== interest) || []
+                                        : [...(field.value || []), interest];
+                                      field.onChange(updatedValue);
+                                    }}
+                                    style={{
+                                      backgroundColor: isSelected ? '#10b981' : '#f3f4f6',
+                                      color: isSelected ? '#ffffff' : '#374151',
+                                      border: isSelected ? '2px solid #059669' : '2px solid #e5e7eb',
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                    className="px-4 py-2 rounded-lg font-medium hover:shadow-md transform hover:scale-105 active:scale-95"
+                                  >
+                                    {interest}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={volunteerForm.control}
+                      name="skills"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Your Skills</FormLabel>
+                          <FormDescription>
+                            Select all skills you can contribute as a volunteer
+                          </FormDescription>
+                          <FormControl>
+                            <div className="flex flex-wrap gap-3 mt-2">
+                              {[
+                                'Programming',
+                                'Teaching',
+                                'Fundraising',
+                                'Event Planning',
+                                'Social Media',
+                                'Photography',
+                                'Public Speaking'
+                              ].map((skill) => {
+                                const isSelected = field.value?.includes(skill);
+                                return (
+                                  <button
+                                    key={skill}
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedValue = isSelected
+                                        ? field.value?.filter((val) => val !== skill) || []
+                                        : [...(field.value || []), skill];
+                                      field.onChange(updatedValue);
+                                    }}
+                                    style={{
+                                      backgroundColor: isSelected ? '#10b981' : '#f3f4f6',
+                                      color: isSelected ? '#ffffff' : '#374151',
+                                      border: isSelected ? '2px solid #059669' : '2px solid #e5e7eb',
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                    className="px-4 py-2 rounded-lg font-medium hover:shadow-md transform hover:scale-105 active:scale-95"
+                                  >
+                                    {skill}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}

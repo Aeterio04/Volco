@@ -63,12 +63,13 @@ def signupfunc(request):
 
         # Save to DB, e.g. Volunteer.objects.create(**data)
         
-        new_user = customUser(email=data['email'], username=data['fullName'],password=make_password(data['password']), usertype='user', location=data['location'], contact=data['contact'])
+        new_user = customUser(email=data['email'], username=data['fullName'],password=make_password(data['password']), usertype='user', location=data['location'], contact=data['contact'], interests=data['interests'], skills=data['skills'])
         new_user.save()
          # Generate slug after saving to get the ID
         new_user.slug = slugify(data['fullName'] + '-' + str(new_user.id))
         new_user.save()
-        student_profile = student(user=new_user, major=data['major'])
+        student_profile = student(user=new_user, major=data['major'],year=data['year'], college="Pune Institute of Computer Technology")
+        student_profile.save()
         return JsonResponse({"message": "Volunteer registered successfully!"})
     return JsonResponse({"error": "Invalid request"}, status=400)
 

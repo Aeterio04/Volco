@@ -24,6 +24,10 @@ class customUser(AbstractUser):
     default="Pune",    # remove null=True
     max_length=500
     )
+    interest=[('Education','Education'),('Environment','Environment'),('Health','Health'),('Community Development','Community Development'),('Animal Welfare','Animal Welfare'),('Arts and Culture','Arts and Culture')]
+    interests = models.JSONField(default=list, max_length=100, blank=True,null=True)
+    skill=[('Programming','Programming'),('Teaching','Teaching'),('Fundraising','Fundraising'),('Event Planning','Event Planning'),('Social Media','Social Media'),('Photography','Photography'),('Public Speaking','Public Speaking')]
+    skills = models.JSONField(default=list, blank=True, null=True, max_length=100)
     contact=models.CharField(max_length=12,blank=True)
 
 class ngo(models.Model):
@@ -35,4 +39,7 @@ class student(models.Model):
     user= models.OneToOneField(customUser, on_delete=models.CASCADE, primary_key=True)
     major= models.CharField(max_length=255, blank=True, null=True)
     college= models.CharField(max_length=255, blank=True, null=True)
+    usersince= models.DateField(default=datetime.date.today)
+    year=models.CharField(choices=[('Freshman','Freshman'),('Sophomore','Sophomore'),('Junior','Junior'),('Senior','Senior'),('Graduate','Graduate')],max_length=100, blank=True, null=True)    
+    
 # Create your models here.

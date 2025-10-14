@@ -21,4 +21,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('',include('auther.urls')),
     path('',include('userfuncs.urls')),
+    path('',include('ngofuncs.urls')),
 ]

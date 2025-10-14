@@ -6,5 +6,6 @@ from . import views
 urlpatterns = [
     path("api/auth/login/",views.loginfunc,name="login"),
     path("api/volunteer/register/",views.signupfunc,name="signup"),
+    path("api/auth/ngoregister/",views.signupngofunc,name="ngosignup"),
     
 ]

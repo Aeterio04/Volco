@@ -13,7 +13,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate, login
-from .models import customUser,student
+from .models import customUser,student,ngo
 from rest_framework.authtoken.models import Token
 import json
 
@@ -49,6 +49,7 @@ def loginfunc(request):
     # Return tokens + user info
     return Response({
         'success': True,
+        'user': user.usertype,
         'access': access_token,
         'refresh': refresh_token,
         
@@ -70,6 +71,34 @@ def signupfunc(request):
         new_user.save()
         student_profile = student(user=new_user, major=data['major'],year=data['year'], college="Pune Institute of Computer Technology")
         student_profile.save()
+        return JsonResponse({"message": "Volunteer registered successfully!"})
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signupngofunc(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        print(data)
+        # Save to DB, e.g. Volunteer.objects.create(**data)
+        new_user = customUser(
+            email=data['email'],
+            username=data['organizationName'],
+            password=make_password(data['password']), 
+            usertype='ngo', 
+            location=data['location'], 
+            contact=data['phone'])
+            
+        
+        new_user.save()
+        print(new_user.id)
+        #  # Generate slug after saving to get the ID
+        new_user.slug = slugify(data['organizationName'] + '-' + str(new_user.id))
+        new_user.save()
+        ngo_profile = ngo(user=new_user, address=data['address'],description=data['description'], focusAreas=data["focusAreas"],ngoid=data['darpanId'],contactperson=data['contactPerson'],website=data['website'])
+        ngo_profile.save()
         return JsonResponse({"message": "Volunteer registered successfully!"})
     return JsonResponse({"error": "Invalid request"}, status=400)
 

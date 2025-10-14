@@ -1,0 +1,161 @@
+/* Contact Us Page Styles */
+.contact-page {
+  background: #f8f9fa;
+  padding: 80px 20px;
+}
+
+.contact-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.contact-header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.contact-header h1 {
+  font-size: 2.8rem;
+  color: #2d3748;
+  margin-bottom: 15px;
+  font-weight: 700;
+}
+
+.contact-header p {
+  font-size: 1.2rem;
+  color: #718096;
+  line-height: 1.6;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 40px;
+  margin-bottom: 60px;
+}
+
+.contact-card {
+  background: white;
+  border-radius: 15px;
+  padding: 40px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.contact-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+}
+
+.card-icon {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+.ngo-card .card-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.contact-card h3 {
+  font-size: 1.8rem;
+  color: #2d3748;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.contact-card p {
+  color: #4a5568;
+  margin-bottom: 12px;
+  line-height: 1.8;
+  font-size: 1rem;
+}
+
+.contact-info {
+  margin-top: 25px;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 15px;
+  padding: 12px;
+  background: #f7fafc;
+  border-radius: 8px;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #2d3748;
+  min-width: 80px;
+  font-size: 0.9rem;
+}
+
+.info-value {
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.email-link {
+  color: #10b981;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+.email-link:hover {
+  color: #059669;
+  text-decoration: underline;
+}
+
+.instructions-box {
+  background: #f0fdf4;
+  border-left: 4px solid #10b981;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.instructions-box h4 {
+  color: #2d3748;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.instructions-box ul {
+  margin-left: 20px;
+  color: #4a5568;
+}
+
+.instructions-box li {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .contact-header h1 {
+    font-size: 2.2rem;
+  }
+
+  .contact-grid {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .contact-card {
+    padding: 30px 25px;
+  }
+
+  .contact-page {
+    padding: 60px 15px;
+  }
+}

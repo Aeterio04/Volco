@@ -38,10 +38,12 @@ const ngoSchema = z.object({
   confirmPassword: z.string(),
   contactPerson: z.string().min(2, "Contact person name is required"),
   phone: z.string().min(10, "Please enter a valid phone number"),
-  website: z.string().url("Please enter a valid website URL").optional().or(z.literal("")),
+  website: z.string().optional().or(z.literal("")),
   address: z.string().min(10, "Full address is required"),
   description: z.string().min(50, "Organization description must be at least 50 characters"),
   focusAreas: z.string().min(10, "Please describe your focus areas"),
+  location: z.string().min(1, "Please select your nearest Location"),
+  darpanId: z.string().optional().or(z.literal("")),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -94,6 +96,8 @@ export default function Register() {
       address: "",
       description: "",
       focusAreas: "",
+      location: "",
+      darpanId: "",
     },
   });
 
@@ -136,13 +140,32 @@ export default function Register() {
   const onNGOSubmit = async (data: NGOForm) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual registration logic
-      console.log("NGO registration data:", data);
+      console.log("Volunteer registration data:", data);
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Get CSRF token (from Django cookie)
+      const csrftoken = Cookies.get("csrftoken");
+      console.log("CSRF Token:", csrftoken);
+      // Send data using fetch
+      const response = await fetch("http://127.0.0.1:8000/api/auth/ngoregister/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrftoken || "",
+        },
+        credentials: "include", // sends cookies (important for CSRF)
+        body: JSON.stringify(data),
+      });
 
-      navigate("/ngo-dashboard");
+      console.log("Server response status:", response.status);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error || `Server Error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Server response:", result);
+
+      navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
     } finally {
@@ -319,20 +342,20 @@ export default function Register() {
                       />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                      control={volunteerForm.control}
-                      name="major"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Major/Field of Study</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Computer Science, Biology, etc." {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
+                      <FormField
+                        control={volunteerForm.control}
+                        name="major"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Major/Field of Study</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Computer Science, Biology, etc." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
                         control={volunteerForm.control}
                         name="year"
                         render={({ field }) => (
@@ -349,7 +372,7 @@ export default function Register() {
                                 <SelectItem value="Sophomore">Sophomore</SelectItem>
                                 <SelectItem value="Junior">Junior</SelectItem>
                                 <SelectItem value="Senior">Senior</SelectItem>
-                               
+
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -358,7 +381,7 @@ export default function Register() {
                       />
 
                     </div>
-                    
+
 
                     <FormField
                       control={volunteerForm.control}
@@ -585,7 +608,7 @@ export default function Register() {
                         )}
                       />
                     </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={ngoForm.control}
                       name="website"
@@ -599,7 +622,45 @@ export default function Register() {
                         </FormItem>
                       )}
                     />
-
+                    <FormField
+                      control={ngoForm.control}
+                      name="darpanId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Darpan ID (Optional)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Darpan123" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    </div>
+                    <FormField
+                        control={ngoForm.control}
+                        name="location"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Location</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select Your nearest Location" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Kalyani Nagar">Kalyani Nagar</SelectItem>
+                                <SelectItem value="Hinjewadi">Hinjewadi</SelectItem>
+                                <SelectItem value="Shaniwar Peth">Shaniwar Peth</SelectItem>
+                                <SelectItem value="Koregaon Park">Koregaon Park</SelectItem>
+                                <SelectItem value="Pashan">Pashan</SelectItem>
+                                <SelectItem value="Sadashiv Peth">Sadashiv Peth</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     <FormField
                       control={ngoForm.control}
                       name="address"

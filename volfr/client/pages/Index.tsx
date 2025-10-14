@@ -45,7 +45,7 @@ export default function Index() {
               <span className="text-primary">Purpose</span>
             </h1>
             <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
-              Bridge the gap between passionate volunteers and meaningful causes. 
+              Bridge the gap between passionate volunteers and meaningful causes.
               Join thousands of students making a difference in their communities through NGO partnerships.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
@@ -196,7 +196,22 @@ export default function Index() {
           </div>
         </div>
       </section>
-
+      <section className="py-20 bg-gradient-to-br from-green-500 to-emerald-600">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Are You an NGO?
+          </h2>
+          <p className="mt-4 text-lg text-white/95 max-w-2xl mx-auto">
+            Partner with us to connect with passionate student volunteers from Pune Institute of Computer Technology. Together, we can create meaningful impact in our community.
+          </p>
+          <Link
+            to="/contact"
+            className="mt-8 inline-flex items-center justify-center px-8 py-4 text-base font-semibold text-emerald-600 bg-white rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all duration-300 hover:-translate-y-1"
+          >
+            Contact Us to Register
+          </Link>
+        </div>
+      </section>
       {/* Featured Causes */}
       <section className="py-20 bg-muted/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -231,7 +246,7 @@ export default function Index() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-primary">
+      <section className="py-20 bg-gradient-to-br from-emerald-600 to-green-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-primary-foreground sm:text-4xl">
             Ready to Make a Difference?
@@ -255,6 +270,7 @@ export default function Index() {
           </div>
         </div>
       </section>
+
 
       {/* Footer */}
       <footer className="bg-background border-t">

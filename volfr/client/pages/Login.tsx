@@ -60,10 +60,16 @@ export default function Login() {
     // Best practice: backend sets refresh token cookie automatically
 
     // ✅ Optionally, store user info
-
+    if (responseData.user=="user"){
+      localStorage.setItem("user","user");
+      
+      navigate("/student-dashboard");
+    }
+    else if (responseData.user=="ngo"){
+      localStorage.setItem("user","ngo");
+      navigate("/ngo-dashboard");
+    }
     console.log("Login successful:");
-    navigate("/student-dashboard");
-
     // Redirect to dashboard or update app state
     // navigate("/dashboard"); or set global auth state
 

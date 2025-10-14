@@ -9,7 +9,7 @@ class customUser(AbstractUser):
     username = models.CharField(max_length=150, blank=True, null=True)
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
-    slug = models.SlugField(blank=True, null=False, unique=True,default='def')  # or just blank=True
+    slug = models.SlugField(blank=True, null=False, unique=False,default='def')  # or just blank=True
     usertype=models.CharField(choices=[('user','user'),('ngo','ngo'),('admin','admin')],blank=False,max_length=500  )
     location = models.CharField(
     choices=[('Kalyani Nagar','Kalyani Nagar'),
@@ -34,6 +34,11 @@ class ngo(models.Model):
     user= models.OneToOneField(customUser, on_delete=models.CASCADE, primary_key=True)
     ngoid = models.CharField(max_length=100, blank=True, null=True)
     address= models.CharField(max_length=255, blank=True, null=True)
+    description= models.TextField(blank=True, null=True)
+    contactperson=models.CharField(max_length=100, blank=True, null=True)   
+    website=models.URLField(max_length=200, blank=True, null=True)
+    
+    focusAreas= models.CharField(max_length=255, blank=True, null=True)
 
 class student(models.Model):
     user= models.OneToOneField(customUser, on_delete=models.CASCADE, primary_key=True)

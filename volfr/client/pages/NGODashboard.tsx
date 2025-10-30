@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -66,17 +68,16 @@ import {
   Award,
   LogOut,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, redirect } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useState } from "react";
 import { format } from "date-fns";
 
 const eventSchema = z.object({
   title: z.string().min(5, "Event title must be at least 5 characters"),
   description: z.string().min(20, "Description must be at least 20 characters"),
-  cause: z.string().min(1, "Please select a cause"),
+  cause: z.array(z.string()).min(1, "Please select a cause"),
   location: z.string().min(5, "Location must be at least 5 characters"),
   date: z.date({
     required_error: "Please select a date for the event",
@@ -86,8 +87,9 @@ const eventSchema = z.object({
   volunteersNeeded: z
     .string()
     .min(1, "Number of volunteers needed is required"),
-  skills: z.string().optional(),
+  skills: z.array(z.string()).optional(),
   requirements: z.string().optional(),
+  address: z.string().min(10, "Address must be at least 10 characters"),
 });
 
 type EventForm = z.infer<typeof eventSchema>;
@@ -160,26 +162,189 @@ export default function NGODashboard() {
     defaultValues: {
       title: "",
       description: "",
-      cause: "",
+      cause: [""],
       location: "",
       startTime: "",
       endTime: "",
       volunteersNeeded: "",
-      skills: "",
+      skills: [""],
       requirements: "",
+      address: "",
     },
   });
+   const [userStats, setUserStats] = useState({
+    'total_events': 99,
+    'volunteers': 127,
+    'completed_events': 12,
+    'avgrating': 4.6
+  });
+  const [user, setUser] = useState(() => {
+    // Try to load from localStorage, else use default
+    const stored = localStorage.getItem("studentUser");
+    if (stored) return JSON.parse(stored);
+    return {
+      username: "Sarah Johnson",
+      email: "sarah@university.edu",
+      location: "State University",
+      slug: "sarah-johnson",
+      major: "Computer Science",
+      contact: "123-456-7890",
+    };
+  });
+  const [NgoEvents, setNgoEvents] = useState(mockEvents);
 
-  const onSubmit = async (data: EventForm) => {
+  const handleLogout = () => {
+    // 🧹 Remove tokens from localStorage
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+
+    // Optional: clear any user-related info
+    localStorage.removeItem("userType");
+
+    // 🚪 Redirect to login page
+    redirect("/login");
+  };
+
+  const onSubmit = async (data) => {
     try {
-      console.log("Event data:", data);
-      setIsCreateEventOpen(false);
+      // Log the form data for debugging
+      console.log("Submitting Event Data:", data);
+      const token = localStorage.getItem("accessToken");
+      console.log("Using token:", token);
+      const response = await fetch("http://127.0.0.1:8000/api/ngo/createevent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // If you have authentication:
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: data.title,
+          description: data.description,
+          cause: data.cause,
+          volunteers_needed: parseInt(data.volunteersNeeded),
+          location: data.location,
+          date: data.date ? new Date(data.date).toISOString().split("T")[0] : null, // format to YYYY-MM-DD
+          start_time: data.startTime,
+          end_time: data.endTime,
+          skills: data.skills || "",
+          requirements: data.requirements || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        console.error("Backend error:", errData);
+        alert(`Error: ${errData.detail || "Failed to create event"}`);
+        return;
+      }
+
+      const result = await response.json();
+      console.log("Event created successfully:", result);
+      alert("🎉 Event created successfully!");
+
+      // Optionally reset form or close modal
       form.reset();
-      // TODO: Implement actual event creation
+      setIsCreateEventOpen(false);
+
     } catch (error) {
-      console.error("Error creating event:", error);
+      console.error("Request failed:", error);
+      alert("An error occurred while creating the event. Please try again.");
     }
   };
+
+    useEffect(() => {
+      const fetchUserData = async () => {
+        try {
+          const token = localStorage.getItem("accessToken");
+          console.log("Using token:", token);
+          if (!token) return; // user not logged in
+  
+          const response = await fetch("http://127.0.0.1:8000/api/ngo/", {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+  
+          if (response.ok) {
+            const data = await response.json();
+            setUser(data);
+            console.log("Fetched ngo data:", data);
+            localStorage.setItem("studentUser", JSON.stringify(data));
+          } else if (response.status === 401) {
+            console.warn("Token expired or invalid — consider refreshing here");
+          } else {
+            console.error("Failed to fetch user data:", response.status);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      };
+      const fetchUserStats = async () => {
+        try {
+          const token = localStorage.getItem("accessToken");
+          if (!token) return; // user not logged in
+  
+          const response = await fetch("http://127.0.0.1:8000/api/ngostats/", {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+  
+          if (response.ok) {
+            const data = await response.json();
+            setUserStats(data);
+            console.log("Fetched user stats:", data);
+          } else if (response.status === 401) {
+            console.warn("Token expired or invalid — consider refreshing here");
+          } else {
+            console.error("Failed to fetch ngo data:", response.status);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      };
+      const fetchRegisteredEvents = async () => {
+        try {
+          const token = localStorage.getItem("accessToken");
+          if (!token) return; // user not logged in
+  
+          const response = await fetch("http://127.0.0.1:8000/api/ngoregistrations/", {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          });
+  
+          if (response.ok) {
+            const data = await response.json();
+            setNgoEvents(data);
+            console.log("Fetched user registered events:", data);
+          } else if (response.status === 401) {
+            console.warn("Token expired or invalid — consider refreshing here");
+          } else {
+            console.error("Failed to fetch user data:", response.status);
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+        }
+      };
+  
+      
+      fetchUserData();
+      fetchRegisteredEvents();
+      fetchUserStats();//DONOT CHANGE ORDER fetchuserdata also updates the statuses and thus needs to go first
+
+    }, []);
+  
+
+
+
 
   return (
     <div className="min-h-screen bg-background">
@@ -208,10 +373,10 @@ export default function NGODashboard() {
                 Settings
               </Button>
               <Button variant="ghost" size="sm" asChild>
-                <Link to="/login">
+                <Button onClick={handleLogout} variant="ghost" size="sm">
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
-                </Link>
+                </Button>
               </Button>
             </div>
           </div>
@@ -288,41 +453,142 @@ export default function NGODashboard() {
                       )}
                     />
 
+
+                    <FormField
+                      control={form.control}
+                      name="cause"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Causes</FormLabel>
+                          <FormDescription>
+                            Select one or more causes that best represent the focus of your event.
+                          </FormDescription>
+                          <FormControl>
+                            <div className="flex flex-wrap gap-3 mt-2">
+                              {[
+                                'Education',
+                                'Environment',
+                                'Health',
+                                'Community Development',
+                                'Animal Welfare',
+                                'Arts and Culture'
+                              ].map((interest) => {
+                                const isSelected = field.value?.includes(interest);
+                                return (
+                                  <button
+                                    key={interest}
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedValue = isSelected
+                                        ? field.value?.filter((val) => val !== interest) || []
+                                        : [...(field.value || []), interest];
+                                      field.onChange(updatedValue);
+                                    }}
+                                    style={{
+                                      backgroundColor: isSelected ? '#10b981' : '#f3f4f6',
+                                      color: isSelected ? '#ffffff' : '#374151',
+                                      border: isSelected ? '2px solid #059669' : '2px solid #e5e7eb',
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                    className="px-4 py-2 rounded-lg font-medium hover:shadow-md transform hover:scale-105 active:scale-95"
+                                  >
+                                    {interest}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="location"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Location</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Kalyani Nagar">Kalyani Nagar</SelectItem>
+                              <SelectItem value="Hinjewadi">Hinjewadi</SelectItem>
+                              <SelectItem value="Shaniwar Peth">Shaniwar Peth</SelectItem>
+                              <SelectItem value="Koregaon Park">Koregaon Park</SelectItem>
+                              <SelectItem value="Pashan">Pashan</SelectItem>
+                              <SelectItem value="Sadashiv Peth">Sadashiv Peth</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+
+                    <FormField
+                      control={form.control}
+                      name="address"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Address</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="123 Main Street, City, State"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
-                        name="cause"
+                        name="date"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cause Category</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select cause" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="environment">
-                                  Environment
-                                </SelectItem>
-                                <SelectItem value="education">
-                                  Education
-                                </SelectItem>
-                                <SelectItem value="health">Health</SelectItem>
-                                <SelectItem value="community">
-                                  Community
-                                </SelectItem>
-                                <SelectItem value="youth">Youth</SelectItem>
-                                <SelectItem value="animals">Animals</SelectItem>
-                              </SelectContent>
-                            </Select>
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Event Date</FormLabel>
+
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"
+                                      }`}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "PPP")
+                                    ) : (
+                                      <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  disabled={(date) =>
+                                    date < new Date() || date < new Date("1900-01-01")
+                                  }
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+
 
                       <FormField
                         control={form.control}
@@ -342,68 +608,7 @@ export default function NGODashboard() {
                         )}
                       />
                     </div>
-
-                    <FormField
-                      control={form.control}
-                      name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Location</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="123 Main Street, City, State"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="date"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-col">
-                            <FormLabel>Event Date</FormLabel>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={`w-full pl-3 text-left font-normal ${!field.value && "text-muted-foreground"}`}
-                                  >
-                                    {field.value ? (
-                                      format(field.value, "PPP")
-                                    ) : (
-                                      <span>Pick a date</span>
-                                    )}
-                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-auto p-0"
-                                align="start"
-                              >
-                                <Calendar
-                                  mode="single"
-                                  selected={field.value}
-                                  onSelect={field.onChange}
-                                  disabled={(date) =>
-                                    date < new Date() ||
-                                    date < new Date("1900-01-01")
-                                  }
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="startTime"
@@ -438,34 +643,45 @@ export default function NGODashboard() {
                       name="skills"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Preferred Skills (Optional)</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Gardening, Teaching, Physical Labor, etc."
-                              {...field}
-                            />
-                          </FormControl>
+                          <FormLabel>Skills Preferred</FormLabel>
                           <FormDescription>
-                            List any specific skills that would be helpful for
-                            this event
+                            Select all skills you would like volunteers to have for this event.
                           </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="requirements"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Requirements (Optional)</FormLabel>
                           <FormControl>
-                            <Textarea
-                              placeholder="Any age restrictions, physical requirements, or items volunteers should bring..."
-                              className="min-h-20"
-                              {...field}
-                            />
+                            <div className="flex flex-wrap gap-3 mt-2">
+                              {[
+                                'Programming',
+                                'Teaching',
+                                'Fundraising',
+                                'Event Planning',
+                                'Social Media',
+                                'Photography',
+                                'Public Speaking'
+                              ].map((skill) => {
+                                const isSelected = field.value?.includes(skill);
+                                return (
+                                  <button
+                                    key={skill}
+                                    type="button"
+                                    onClick={() => {
+                                      const updatedValue = isSelected
+                                        ? field.value?.filter((val) => val !== skill) || []
+                                        : [...(field.value || []), skill];
+                                      field.onChange(updatedValue);
+                                    }}
+                                    style={{
+                                      backgroundColor: isSelected ? '#10b981' : '#f3f4f6',
+                                      color: isSelected ? '#ffffff' : '#374151',
+                                      border: isSelected ? '2px solid #059669' : '2px solid #e5e7eb',
+                                      transition: 'all 0.2s ease',
+                                    }}
+                                    className="px-4 py-2 rounded-lg font-medium hover:shadow-md transform hover:scale-105 active:scale-95"
+                                  >
+                                    {skill}
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -501,9 +717,9 @@ export default function NGODashboard() {
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12</div>
+              <div className="text-2xl font-bold">{userStats.total_events}</div>
               <p className="text-xs text-muted-foreground">
-                +2 from last month
+                
               </p>
             </CardContent>
           </Card>
@@ -516,34 +732,34 @@ export default function NGODashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">156</div>
-              <p className="text-xs text-muted-foreground">+18 this month</p>
+              <div className="text-2xl font-bold">{userStats.volunteers}</div>
+              <p className="text-xs text-muted-foreground"></p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Hours Contributed
+                Events Completed
               </CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,247</div>
-              <p className="text-xs text-muted-foreground">+89 this month</p>
+              <div className="text-2xl font-bold">{userStats.completed_events}</div>
+              <p className="text-xs text-muted-foreground"></p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Impact Score
+                Rating
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">94%</div>
-              <p className="text-xs text-muted-foreground">+5% improvement</p>
+              <p className="text-xs text-muted-foreground"></p>
             </CardContent>
           </Card>
         </div>
@@ -571,7 +787,7 @@ export default function NGODashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockEvents.slice(0, 3).map((event) => (
+                  {NgoEvents.slice(0, 3).map((event) => (
                     <div
                       key={event.id}
                       className="flex items-center justify-between p-3 border rounded-lg"
@@ -658,7 +874,7 @@ export default function NGODashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockEvents.map((event) => (
+                    {NgoEvents.map((event) => (
                       <TableRow key={event.id}>
                         <TableCell>
                           <div>

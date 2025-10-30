@@ -19,6 +19,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Heart,
   Search,
   Calendar as CalendarIcon,
@@ -34,6 +42,8 @@ import {
   Star,
   UserCheck,
   Globe,
+  Mail,
+  CheckCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -55,7 +65,7 @@ const mockRecommendedEvents = [
       "Help clean and maintain our community garden. No experience needed!",
     skills: ["Gardening", "Physical Labor"],
     difficulty: "Easy",
-
+    impact: "High",
   },
   {
     id: 2,
@@ -100,7 +110,6 @@ const mockRegisteredEvents = [
     time: "7:00 AM - 11:00 AM",
     location: "Pashan Lake",
     status: "Upcoming",
-
   },
   {
     id: 5,
@@ -172,11 +181,21 @@ export default function StudentDashboard() {
     };
   });
 
+  // Modal and OTP states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [isLoadingOtp, setIsLoadingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccess, setOtpSuccess] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem("accessToken");
+        console.log("Using token:", token);
         if (!token) return; // user not logged in
 
         const response = await fetch("http://127.0.0.1:8000/api/user/", {
@@ -262,9 +281,149 @@ export default function StudentDashboard() {
 
   if (!user) return <p>Loading user info...</p>;
 
+  // Handle opening registration modal
+  const handleRegisterClick = (event) => {
+    console.log("Registering for event:", event);
+    setSelectedEvent(event);
+    setIsModalOpen(true);
+    setOtpSent(false);
+    setOtp(["", "", "", "", "", ""]);
+    setOtpError("");
+    setOtpSuccess(false);
+  };
 
+  // Handle closing modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+    setOtpSent(false);
+    setOtp(["", "", "", "", "", ""]);
+    setOtpError("");
+    setOtpSuccess(false);
+  };
 
+  // Send OTP
+  const handleSendOtp = async () => {
+    setIsLoadingOtp(true);
+    setOtpError("");
+    console.log("Sending OTP to:", user.email);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://127.0.0.1:8000/api/send-otp/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+        }),
+      });
 
+      if (response.ok) {
+        setOtpSent(true);
+        setOtpError("");
+      } else {
+        const errorData = await response.json();
+        setOtpError(errorData.message || "Failed to send OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      setOtpError("An error occurred while sending OTP. Please try again.");
+    } finally {
+      setIsLoadingOtp(false);
+    }
+  };
+
+  // Handle OTP input change
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) {
+      value = value[0];
+    }
+    
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  // Handle OTP input keydown
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOtp = async (id: number) => {
+    const otpString = otp.join("");
+    
+    if (otpString.length !== 6) {
+      setOtpError("Please enter a complete 6-digit OTP.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError("");
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://127.0.0.1:8000/api/verify-otp/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          otp: otpString,
+          
+        }),
+      });
+
+      if (response.ok) {
+        setOtpSuccess(true);
+        console.log("OTP verified successfully for event ID:", id);
+        setOtpError("");
+        const response = await fetch("http://127.0.0.1:8000/api/setevent/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          id: id,
+        }),
+      });
+        
+        
+        // Close modal after successful verification
+        setTimeout(() => {
+          handleCloseModal();
+          // Show success message or update UI
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        setOtpError(errorData.message || "Invalid OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      setOtpError("An error occurred while verifying OTP. Please try again.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
 
   const filteredEvents = RecommendedEvents.filter((event) => {
     const matchesSearch =
@@ -276,7 +435,7 @@ export default function StudentDashboard() {
     return matchesSearch && matchesCause;
   });
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
       case "Easy":
         return "bg-green-100 text-green-800";
@@ -289,7 +448,7 @@ export default function StudentDashboard() {
     }
   };
 
-  const getImpactColor = (impact: string) => {
+  const getImpactColor = (impact) => {
     switch (impact) {
       case "Very High":
         return "bg-purple-100 text-purple-800";
@@ -555,7 +714,9 @@ export default function StudentDashboard() {
                             }
                             className="flex-1 mr-4"
                           />
-                          <Button>Register Now</Button>
+                          <Button onClick={() => handleRegisterClick(event)}>
+                            Register Now
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -743,9 +904,6 @@ export default function StudentDashboard() {
                     </Avatar>
                     <div>
                       <h3 className="text-lg font-medium">{user.username}</h3>
-                      <p className="text-muted-foreground">
-
-                      </p>
                       <p className="text-muted-foreground">{user.college}</p>
                     </div>
                   </div>
@@ -822,6 +980,179 @@ export default function StudentDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Registration Modal with OTP Verification */}
+      <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              {selectedEvent?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Review event details and verify your registration
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEvent && (
+            <div className="space-y-6 py-4">
+              {/* Event Details */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{selectedEvent.cause}</Badge>
+                  <Badge className={getDifficultyColor(selectedEvent.difficulty)}>
+                    {selectedEvent.difficulty}
+                  </Badge>
+                  <Badge className={getImpactColor(selectedEvent.impact)}>
+                    {selectedEvent.impact}
+                  </Badge>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Organization</h4>
+                  <p className="text-muted-foreground">{selectedEvent.organization}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Description</h4>
+                  <p className="text-muted-foreground">{selectedEvent.description}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      Date
+                    </h4>
+                    <p className="text-muted-foreground">{selectedEvent.date}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Time
+                    </h4>
+                    <p className="text-muted-foreground">{selectedEvent.time}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Location
+                  </h4>
+                  <p className="text-muted-foreground">{selectedEvent.location}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Volunteers
+                  </h4>
+                  <p className="text-muted-foreground">
+                    {selectedEvent.volunteersRegistered} / {selectedEvent.volunteersNeeded} registered
+                  </p>
+                  <Progress
+                    value={(selectedEvent.volunteersRegistered / selectedEvent.volunteersNeeded) * 100}
+                    className="mt-2"
+                  />
+                </div>
+
+                {selectedEvent.skills && selectedEvent.skills.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Required Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedEvent.skills.map((skill, index) => (
+                        <Badge key={index} variant="outline">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* OTP Section */}
+              <div className="border-t pt-6">
+                {!otpSent ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      <span>We'll send a verification code to {user.email}</span>
+                    </div>
+                    <Button
+                      onClick={handleSendOtp}
+                      disabled={isLoadingOtp}
+                      className="w-full"
+                    >
+                      {isLoadingOtp ? "Sending OTP..." : "Send Verification Code"}
+                    </Button>
+                  </div>
+                ) : !otpSuccess ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold mb-2">Enter Verification Code</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        We've sent a 6-digit code to {user.email}
+                      </p>
+                      
+                      <div className="flex gap-2 justify-center">
+                        {otp.map((digit, index) => (
+                          <Input
+                            key={index}
+                            id={`otp-${index}`}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                            className="w-12 h-12 text-center text-lg font-semibold"
+                          />
+                        ))}
+                      </div>
+
+                      {otpError && (
+                        <p className="text-sm text-red-500 mt-2 text-center">{otpError}</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleSendOtp}
+                        disabled={isLoadingOtp}
+                        className="flex-1"
+                      >
+                        Resend Code{selectedEvent.id}
+                      </Button>
+                      <Button
+                        onClick={() => handleVerifyOtp(selectedEvent.eventid)}
+                        disabled={isVerifyingOtp || otp.join("").length !== 6}
+                        className="flex-1"
+                      >
+                        {isVerifyingOtp ? "Verifying..." : "Verify & Register"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <CheckCircle className="h-16 w-16 text-green-500" />
+                    <h4 className="font-semibold text-lg">Registration Successful!</h4>
+                    <p className="text-sm text-muted-foreground text-center">
+                      You've been successfully registered for this event.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseModal}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

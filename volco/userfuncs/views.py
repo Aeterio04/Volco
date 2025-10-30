@@ -2,7 +2,7 @@ from django.shortcuts import render
 from django.shortcuts import render,redirect
 from django.http import HttpResponse,JsonResponse
 from django.contrib import messages
-from datetime import datetime
+import datetime
 from django.contrib.auth.models import User,auth
 from django.contrib.auth import authenticate,logout
 from django.contrib.auth.hashers import make_password
@@ -28,7 +28,44 @@ def get_user_data(request):
     if student_profile is None:
         print("No student profile found for user:", user.email)
     recommended_events=recommend_events(user)
-    print(recommended_events)
+
+    events=[]
+    for e in recommended_events:
+        if e.volunteers_needed==0:
+            continue
+        eventobj={
+            'eventid': e.eventid,
+            'title': e.title,
+            'organization': e.organization.username if e.organization else None,
+            'cause': ", ".join([item for item in e.causes if item]),
+            'date': e.date,
+            'time': e.time,
+            'location': e.address,
+            'volunteersNeeded': e.volunteers_needed,
+            'volunteersRegistered': e.volunteers_registered,
+            'description': e.description,
+            'skills': e.skills,
+            "difficulty": e.impact,
+
+            }
+        events.append(eventobj)
+    
+#     {
+#     id: 1,
+#     title: "Community Garden Cleanup",
+#     organization: "Green Earth Initiative",
+#     cause: "Environment",
+#     date: "2024-02-15",
+#     time: "9:00 AM - 1:00 PM",
+#     location: "Aga Khan Palace Community Garden",
+#     volunteersNeeded: 15,
+#     volunteersRegistered: 12,
+#     description:
+#       "Help clean and maintain our community garden. No experience needed!",
+#     skills: ["Gardening", "Physical Labor"],
+#     difficulty: "Easy",
+
+#   },
     return Response({
         'id': user.id,
         'username': user.username,
@@ -44,7 +81,7 @@ def get_user_data(request):
         'college': getattr(student_profile, 'college', 'Not Provided'),
         'usersince': getattr(student_profile, 'usersince', 'Not Provided'),
         'contact': getattr(user, 'contact', 'Not Provided'),
-        'recommended_events': recommended_events,
+        'recommended_events': events,
     })
 
 
@@ -75,17 +112,7 @@ def getregisteredevents(request):
     user=request.user
     registrations = EventRegistration.objects.filter(user=user, status="Registered")
 
-#     {
-#     id: 4,
-#     title: "Lake Cleanup Day",
-#     organization: "Ocean Conservation Society",
-#     cause: "Environment",
-#     date: "2024-02-10",
-#     time: "7:00 AM - 11:00 AM",
-#     location: "Pashan Lake",
-#     status: "Confirmed",
-#     hoursLogged: 4,
-#   },
+    
 
     registered_events = []
     for reg in registrations:
@@ -116,10 +143,19 @@ def recommend_events(user):
     user_skills = set(user.skills)
     user_interests = set(user.interests)
 
-    registered_events = EventRegistration.objects.filter(user=user, status="Registered").values_list('event', flat=True)
-    available_events = events.objects.exclude(status__in=['Completed', 'Cancelled'])  # only upcoming/ongoing
-    available_events =[e for e in available_events if e not in registered_events]
-    
+    registered_events = EventRegistration.objects.filter(user=user, status="Registered")
+    registered_events = [reg.event for reg in registered_events]
+    active_events = events.objects.exclude(status__in=['Completed', 'Cancelled'])  # only upcoming/ongoing
+    available_events=[]
+    for i in registered_events:
+        print("Registered event ID:", i)
+    for a in active_events:
+        if a not in registered_events:
+            available_events.append(a)
+            print("Available event:", a.title)
+        else:
+            print("Skipping registered event:", a.title)
+
     scored_events = []
 
     for event in available_events:
@@ -130,3 +166,14 @@ def recommend_events(user):
 
     scored_events.sort(key=lambda x: x[1], reverse=True)
     return [e for e, s in scored_events[:10]]  # top 10
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])  # ✅ ensures only JWT-authenticated users reach here
+def checkstatus(request):
+    user = request.user
+    print("Checking user authentication status for:", user.username)
+    return JsonResponse({
+        'status': 'authenticated',
+        'username': user.username,
+        'usertype': user.usertype
+    })

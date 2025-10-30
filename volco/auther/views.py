@@ -16,7 +16,9 @@ from django.contrib.auth import authenticate, login
 from .models import customUser,student,ngo
 from rest_framework.authtoken.models import Token
 import json
-
+import random
+from django.core.mail import send_mail
+from .models import EmailOTP
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -32,6 +34,7 @@ def loginfunc(request):
     # Fetch user
     user = customUser.objects.filter(email=email).first()
     if user is None:
+        print('User not found')
         return Response({'success': False, 'message': 'User with this email does not exist.'}, status=400)
 
     # Validate password
@@ -102,4 +105,46 @@ def signupngofunc(request):
         return JsonResponse({"message": "Volunteer registered successfully!"})
     return JsonResponse({"error": "Invalid request"}, status=400)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_otp(request):
+    email = request.data.get('email')  # or request.data['email'] for POST
+    print("Sending OTP to:", email)
+    otp = str(random.randint(100000, 999999))
+
+    # Save OTP in DB
+    EmailOTP.objects.create(email=email, otp=otp)
+
+    # Send Email
+    send_mail(
+        subject='Your OTP Code',
+        message=f'Your OTP is {otp}. It will expire in 5 minutes.',
+        from_email='ojsangwai17@gmail.com',
+        recipient_list=[email],
+        fail_silently=False,
+    )
+
+    return JsonResponse({'message': 'OTP sent successfully'})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    print("wtf")
+    print(request.data)
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+
+    try:
+        record = EmailOTP.objects.filter(email=email).latest('created_at')
+    except EmailOTP.DoesNotExist:
+        return JsonResponse({'message': 'OTP not found'}, status=400)
+
+    if record.is_expired():
+        return JsonResponse({'message': 'OTP expired'}, status=400)
+
+    if record.otp != otp:
+        return JsonResponse({'message': 'Invalid OTP'}, status=400)
+
+    # ✅ Success
+    return JsonResponse({'message': 'OTP verified successfully'})
 # Create your views here.

@@ -45,6 +45,20 @@ class student(models.Model):
     major= models.CharField(max_length=255, blank=True, null=True)
     college= models.CharField(max_length=255, blank=True, null=True)
     usersince= models.DateField(default=datetime.date.today)
+    hoursvolunteered=models.IntegerField(blank=True, null=True)
     year=models.CharField(choices=[('Freshman','Freshman'),('Sophomore','Sophomore'),('Junior','Junior'),('Senior','Senior'),('Graduate','Graduate')],max_length=100, blank=True, null=True)    
     
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+import datetime
+
+class EmailOTP(models.Model):
+    user = models.ForeignKey(customUser, on_delete=models.CASCADE, null=True, blank=True)
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + datetime.timedelta(minutes=5)
 # Create your models here.

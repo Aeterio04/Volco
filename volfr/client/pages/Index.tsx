@@ -1,9 +1,38 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, Users, Calendar, Award, ArrowRight, Globe, Handshake } from "lucide-react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 
 export default function Index() {
+  const token = localStorage.getItem("accessToken");
+  useEffect(() => {
+    const onload = async () => {
+    const response = await fetch("http://127.0.0.1:8000/api/auth/checkstatus", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+       // important if backend sets HttpOnly refresh cookie
+    });
+
+    const responseData = await response.json();
+
+    if (response.ok) {
+      if(responseData.usertype=="user"){
+        window.location.href = "/student-dashboard";
+      }
+      else if(responseData.usertype=="ngo"){
+        window.location.href = "/ngo-dashboard";
+      }
+    }
+  }
+  onload()},
+  []);
+
+
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}

@@ -24,12 +24,15 @@ class events(models.Model):
     default="Pune",    # remove null=True
     max_length=500
     )
+
+    address = models.TextField(blank=True, null=True)
+    hours= models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True)
     volunteers_needed = models.IntegerField(blank=True, null=True)
     volunteers_registered = models.IntegerField(blank=True, null=True)
     causes=[('Education','Education'),('Environment','Environment'),('Health','Health'),('Community Development','Community Development'),('Animal Welfare','Animal Welfare'),('Arts and Culture','Arts and Culture')]
-    cause = models.CharField(choices=causes, max_length=100, blank=True,null=True)
+    causes = models.JSONField(default=list, blank=True)
+    skills = models.JSONField(default=list, blank=True)
     skill=[('Programming','Programming'),('Teaching','Teaching'),('Fundraising','Fundraising'),('Event Planning','Event Planning'),('Social Media','Social Media'),('Photography','Photography'),('Public Speaking','Public Speaking')]
-    skills = models.CharField(choices=skill, blank=True, null=True, max_length=100)
     impact=[('Low','Low'),('Medium','Medium'),('High','High'),('Very High','Very High')]
     impact = models.CharField(choices=impact, max_length=100, blank=True,null=True)
     status=[('Upcoming','Upcoming'),('Ongoing','Ongoing'),('Completed','Completed'),('Cancelled','Cancelled')]

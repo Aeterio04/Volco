@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+
 import {
   Card,
   CardContent,
@@ -45,7 +47,7 @@ import {
   Mail,
   CheckCircle,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, redirect } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { set } from "date-fns";
 
@@ -167,6 +169,7 @@ export default function StudentDashboard() {
     organizations_helped: 0,
     impactLevel: "Beginner",
   });
+  const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     // Try to load from localStorage, else use default
     const stored = localStorage.getItem("studentUser");
@@ -214,8 +217,11 @@ export default function StudentDashboard() {
           localStorage.setItem("studentUser", JSON.stringify(data));
         } else if (response.status === 401) {
           console.warn("Token expired or invalid — consider refreshing here");
+          console.log("Redirecting to login due to invalid token");
+          window.location.href = "/";
         } else {
           console.error("Failed to fetch user data:", response.status);
+          window.location.href = "/";
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
@@ -435,6 +441,9 @@ export default function StudentDashboard() {
     return matchesSearch && matchesCause;
   });
 
+  const getevents=()=>{
+    navigate("/events");
+  };
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
       case "Easy":
@@ -487,7 +496,8 @@ export default function StudentDashboard() {
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </Button>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild onClick={()=>{localStorage.clear();
+}}>
                 <Link to="/login">
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
@@ -510,11 +520,9 @@ export default function StudentDashboard() {
                 Ready to make a difference today?
               </p>
             </div>
-            <Button asChild>
-              <Link to="/events" className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
+            <Button onClick={getevents} >
+              <Search className="h-4 w-4" />
                 Browse All Events
-              </Link>
             </Button>
           </div>
         </div>

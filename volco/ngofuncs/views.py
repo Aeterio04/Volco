@@ -3,7 +3,7 @@ from django.shortcuts import render,redirect
 from django.http import HttpResponse,JsonResponse
 from django.contrib import messages
 from datetime import datetime
-from datetime import date
+from datetime import date as date_cls
 from django.contrib.auth.models import User,auth
 from django.contrib.auth import authenticate,logout
 from django.contrib.auth.hashers import make_password
@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate, login
 from auther.models import customUser,student
-
+from django.utils import timezone
 from rest_framework.authtoken.models import Token
 import json
 from rest_framework.permissions import IsAuthenticated
@@ -41,6 +41,17 @@ def createEventfunc(request):
     skills = request.data.get('skills')
     organization = request.user  # Assuming the user is authenticated and is an NGO
     status = 'Upcoming'  # Default status
+    print(date,start_time,end_time)
+
+    year, month, day = map(int, date.split("-"))
+    event_date = date_cls(year, month, day)
+    startHour, startMinute = map(int, start_time.split(":"))
+    endHour, endMinute = map(int, end_time.split(":"))
+    unawarestart=datetime(year, month, day, startHour, startMinute)
+    unawareend=datetime(year, month, day, endHour, endMinute)
+
+    start_datetime=timezone.make_aware(unawarestart,timezone.get_current_timezone())
+    end_datetime=timezone.make_aware(unawareend,timezone.get_current_timezone())
 
     if not all([title, description, date, start_time, end_time, location, volunteers_needed, cause, skills]):
         return Response({'success': False, 'message': 'All fields are required.'}, status=400)
@@ -50,8 +61,8 @@ def createEventfunc(request):
     event=events.objects.create(
         title=title,
         description=description,
-        date=date,
-        time=start_time,
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
         location=location,
         address=address,
         hours=hours,
@@ -131,12 +142,16 @@ def getregisteredevents(request):
     user=request.user
     event1=events.objects.filter(organization=user)
     registered_events = []
+    print(date_cls.today())
     for event in event1:
         
-        if event.date <date.today():
+        if event.end_datetime.time() <timezone.now():
             event.status = "Completed"
+            
             event.save()
-        elif event.date==date.today():
+        elif event.end_datetime.time()> timezone.now() and event.start_datetime.time()<=timezone.now():
+            
+            print(event.title,event.date)
             event.status = "Ongoing"
             event.save()
         

@@ -3,13 +3,14 @@ from django.contrib.auth.models import AbstractUser,BaseUserManager
 import datetime
 from auther.models import customUser
 from django.utils.text import slugify
+from django.utils import timezone
 
 class events(models.Model):
     eventid = models.AutoField(primary_key=True)
     title = models.CharField(max_length=255, blank=False, null=False)
     description = models.TextField(blank=True, null=True)
-    date = models.DateField(default=datetime.date.today)
-    time= models.TimeField(default=datetime.datetime.now().time())
+    start_datetime = models.DateTimeField(default=timezone.now)
+    end_datetime = models.DateTimeField(default=timezone.now)
     organization = models.ForeignKey(customUser,on_delete=models.CASCADE,null=True,related_name='events')
     location = models.CharField(
     choices=[('Kalyani Nagar','Kalyani Nagar'),

@@ -38,8 +38,8 @@ def get_user_data(request):
             'title': e.title,
             'organization': e.organization.username if e.organization else None,
             'cause': ", ".join([item for item in e.causes if item]),
-            'date': e.date,
-            'time': e.time,
+            'date': e.start_datetime.date(),
+            'time': e.start_datetime.time().strftime("%H:%M") + " - " + e.end_datetime.time().strftime("%H:%M"),
             'location': e.address,
             'volunteersNeeded': e.volunteers_needed,
             'volunteersRegistered': e.volunteers_registered,
@@ -177,3 +177,34 @@ def checkstatus(request):
         'username': user.username,
         'usertype': user.usertype
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def getevents(request):
+    user = request.user
+    recommended_events = recommend_events(user)
+
+    
+    events_list = []
+    for e in recommended_events:
+        if e.volunteers_needed == 0:
+            continue
+        eventobj = {
+            'id': e.eventid,
+            'title': e.title,
+            'organization': e.organization.username if e.organization else None,
+            'organizationLogo' : "🏢",
+            'cause': ", ".join([item for item in e.causes if item]),
+            'date': e.date,
+            'time': e.time,
+            'location': e.address,
+            'city': e.location,
+            'volunteersNeeded': e.volunteers_needed,
+            'volunteersRegistered': e.volunteers_registered,
+            'description': e.description,
+            'skills': e.skills,
+            "difficulty": e.impact,
+        }
+        events_list.append(eventobj)
+
+    return Response(events_list)

@@ -3,33 +3,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Heart, Users, Calendar, Award, ArrowRight, Globe, Handshake } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
+import img from "../components/ui/2580695.jpg";
 
 export default function Index() {
   const token = localStorage.getItem("accessToken");
   useEffect(() => {
     const onload = async () => {
-    const response = await fetch("http://127.0.0.1:8000/api/auth/checkstatus", {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-      },
-       // important if backend sets HttpOnly refresh cookie
-    });
+      const response = await fetch("http://127.0.0.1:8000/api/auth/checkstatus", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        // important if backend sets HttpOnly refresh cookie
+      });
 
-    const responseData = await response.json();
+      const responseData = await response.json();
 
-    if (response.ok) {
-      if(responseData.usertype=="user"){
-        window.location.href = "/student-dashboard";
-      }
-      else if(responseData.usertype=="ngo"){
-        window.location.href = "/ngo-dashboard";
+      if (response.ok) {
+        if (responseData.usertype == "user") {
+          window.location.href = "/student-dashboard";
+        }
+        else if (responseData.usertype == "ngo") {
+          window.location.href = "/ngo-dashboard";
+        }
       }
     }
-  }
-  onload()},
-  []);
+    onload()
+  },
+    []);
 
 
 
@@ -66,17 +68,47 @@ export default function Index() {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-volunteer-50 to-volunteer-100 pt-16 pb-20 sm:pt-24 sm:pb-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden pt-16 pb-20 sm:pt-24 sm:pb-40">
+
+        {/* Background Image */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${img})` }}
+        />
+
+        {/* Green semi-transparent overlay */}
+        <div className="absolute inset-0 bg-green-600/10"></div>
+        <div className="absolute inset-0 bg-white/50"></div>
+        {/* <div className="absolute inset-0 bg-black/50"></div> */}
+
+
+        {/* Fade Overlay + darkening */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-white"></div>
+
+
+
+
+        {/* Content */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-              Connect <span className="text-primary">Volunteers</span> with{" "}
-              <span className="text-primary">Purpose</span>
+            <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
+              <span className="text-white">Connect</span>{" "}
+              <span className="text-primary drop-shadow-[0_0_8px_rgba(0,0,0,0.45)]">
+                Volunteers
+              </span>{" "}
+              <span className="text-white">with</span>{" "}
+              <span className="text-primary drop-shadow-[0_0_8px_rgba(0,0,0,0.4)]">
+                Purpose
+              </span>
             </h1>
-            <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
+
+
+            <p className="mt-6 text-lg leading-8 text-white/90 max-w-2xl mx-auto">
+
               Bridge the gap between passionate volunteers and meaningful causes.
               Join thousands of students making a difference in their communities through NGO partnerships.
             </p>
+
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <Button size="lg" asChild>
                 <Link to="/register" className="flex items-center gap-2">
@@ -110,6 +142,8 @@ export default function Index() {
           </div>
         </div>
       </section>
+
+
 
       {/* Features Section */}
       <section className="py-20 bg-background">

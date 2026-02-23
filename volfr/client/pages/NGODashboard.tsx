@@ -172,7 +172,7 @@ export default function NGODashboard() {
       address: "",
     },
   });
-   const [userStats, setUserStats] = useState({
+  const [userStats, setUserStats] = useState({
     'total_events': 99,
     'volunteers': 127,
     'completed_events': 12,
@@ -192,6 +192,74 @@ export default function NGODashboard() {
     };
   });
   const [NgoEvents, setNgoEvents] = useState(mockEvents);
+  const [isViewEventOpen, setIsViewEventOpen] = useState(false);
+
+  <Dialog open={isViewEventOpen} onOpenChange={setIsViewEventOpen}>
+    <DialogContent className="max-w-3xl">
+      <DialogHeader>
+        <DialogTitle>{selectedEvent?.title}</DialogTitle>
+        <DialogDescription>
+          {selectedEvent?.cause}
+        </DialogDescription>
+      </DialogHeader>
+
+      {selectedEvent && (
+        <div className="space-y-6">
+          {/* Event Info */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Date</p>
+              <p>{selectedEvent.date}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Location</p>
+              <p>{selectedEvent.location}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Volunteers</p>
+              <p>
+                {selectedEvent.volunteersRegistered} / {selectedEvent.volunteersNeeded}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Status</p>
+              <Badge>{selectedEvent.status}</Badge>
+            </div>
+          </div>
+
+          {/* Description (if available later) */}
+          {selectedEvent.description && (
+            <div>
+              <p className="text-muted-foreground mb-1">Description</p>
+              <p className="text-sm">{selectedEvent.description}</p>
+            </div>
+          )}
+
+          {/* QR Codes */}
+          <div className="grid grid-cols-2 gap-6">
+            <div className="border rounded-lg p-4 flex flex-col items-center gap-2">
+              <div className="w-32 h-32 bg-muted flex items-center justify-center rounded">
+                QR 1
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Volunteer Registration
+              </p>
+            </div>
+
+            <div className="border rounded-lg p-4 flex flex-col items-center gap-2">
+              <div className="w-32 h-32 bg-muted flex items-center justify-center rounded">
+                QR 2
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Event Location / Check-in
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </DialogContent>
+  </Dialog>
+
 
   const handleLogout = () => {
     // 🧹 Remove tokens from localStorage
@@ -253,95 +321,97 @@ export default function NGODashboard() {
     }
   };
 
-    useEffect(() => {
-      const fetchUserData = async () => {
-        try {
-          const token = localStorage.getItem("accessToken");
-          console.log("Using token:", token);
-          if (!token) return; // user not logged in
-  
-          const response = await fetch("http://127.0.0.1:8000/api/ngo/", {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-  
-          if (response.ok) {
-            const data = await response.json();
-            setUser(data);
-            console.log("Fetched ngo data:", data);
-            localStorage.setItem("studentUser", JSON.stringify(data));
-          } else if (response.status === 401) {
-            console.warn("Token expired or invalid — consider refreshing here");
-          } else {
-            console.error("Failed to fetch user data:", response.status);
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
-      };
-      const fetchUserStats = async () => {
-        try {
-          const token = localStorage.getItem("accessToken");
-          if (!token) return; // user not logged in
-  
-          const response = await fetch("http://127.0.0.1:8000/api/ngostats/", {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-  
-          if (response.ok) {
-            const data = await response.json();
-            setUserStats(data);
-            console.log("Fetched user stats:", data);
-          } else if (response.status === 401) {
-            console.warn("Token expired or invalid — consider refreshing here");
-          } else {
-            console.error("Failed to fetch ngo data:", response.status);
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
-      };
-      const fetchRegisteredEvents = async () => {
-        try {
-          const token = localStorage.getItem("accessToken");
-          if (!token) return; // user not logged in
-  
-          const response = await fetch("http://127.0.0.1:8000/api/ngoregistrations/", {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          });
-  
-          if (response.ok) {
-            const data = await response.json();
-            setNgoEvents(data);
-            console.log("Fetched user registered events:", data);
-          } else if (response.status === 401) {
-            console.warn("Token expired or invalid — consider refreshing here");
-          } else {
-            console.error("Failed to fetch user data:", response.status);
-          }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
-      };
-  
-      
-      fetchUserData();
-      fetchRegisteredEvents();
-      fetchUserStats();//DONOT CHANGE ORDER fetchuserdata also updates the statuses and thus needs to go first
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        console.log("Using token:", token);
+        if (!token) return; // user not logged in
 
-    }, []);
-  
+        const response = await fetch("http://127.0.0.1:8000/api/ngo/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data);
+          console.log("Fetched ngo data:", data);
+          localStorage.setItem("studentUser", JSON.stringify(data));
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+          console.log("Redirecting to login due to invalid token");
+          window.location.href = "/";
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    const fetchUserStats = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
+
+        const response = await fetch("http://127.0.0.1:8000/api/ngostats/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserStats(data);
+          console.log("Fetched user stats:", data);
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+        } else {
+          console.error("Failed to fetch ngo data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    const fetchRegisteredEvents = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
+
+        const response = await fetch("http://127.0.0.1:8000/api/ngoregistrations/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setNgoEvents(data);
+          console.log("Fetched user registered events:", data);
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+
+
+    fetchUserData();
+    fetchRegisteredEvents();
+    fetchUserStats();//DONOT CHANGE ORDER fetchuserdata also updates the statuses and thus needs to go first
+
+  }, []);
+
 
 
 
@@ -719,7 +789,7 @@ export default function NGODashboard() {
             <CardContent>
               <div className="text-2xl font-bold">{userStats.total_events}</div>
               <p className="text-xs text-muted-foreground">
-                
+
               </p>
             </CardContent>
           </Card>
@@ -915,8 +985,12 @@ export default function NGODashboard() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button variant="ghost" size="sm">
+                            <Button variant="ghost" size="sm" onClick={() => {
+                              setSelectedEvent(event);
+                              setIsViewEventOpen(true);
+                            }}>
                               <Eye className="h-4 w-4" />
+
                             </Button>
                             <Button variant="ghost" size="sm">
                               <Edit className="h-4 w-4" />

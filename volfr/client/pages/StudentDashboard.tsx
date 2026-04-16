@@ -162,6 +162,8 @@ export default function StudentDashboard() {
   const [activeTab, setActiveTab] = useState("discover");
   const [RecommendedEvents, setRecommendedEvents] = useState(mockRecommendedEvents);
   const [RegisteredEvents, setRegisteredEvents] = useState(mockRegisteredEvents);
+  const [ActivityHistory, setActivityHistory] = useState([]);
+  const [Achievements, setAchievements] = useState([]);
   const [userStats, setUserStats] = useState({
     total_events: 0,
     user_events: 0,
@@ -193,6 +195,13 @@ export default function StudentDashboard() {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpSuccess, setOtpSuccess] = useState(false);
+
+  // Rating modal states
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [selectedEventForRating, setSelectedEventForRating] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [review, setReview] = useState("");
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -280,9 +289,57 @@ export default function StudentDashboard() {
       }
     };
 
+    const fetchActivityHistory = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        const response = await fetch("http://127.0.0.1:8000/api/user/activity-history/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setActivityHistory(data);
+          console.log("Fetched activity history:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching activity history:", error);
+      }
+    };
+
+    const fetchAchievements = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        const response = await fetch("http://127.0.0.1:8000/api/user/achievements/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAchievements(data.achievements);
+          console.log("Fetched achievements:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching achievements:", error);
+      }
+    };
+
     fetchUserStats();
     fetchUserData();
     fetchRegisteredEvents();
+    fetchActivityHistory();
+    fetchAchievements();
   }, []);
 
   if (!user) return <p>Loading user info...</p>;
@@ -417,7 +474,7 @@ export default function StudentDashboard() {
         // Close modal after successful verification
         setTimeout(() => {
           handleCloseModal();
-          // Show success message or update UI
+          window.location.reload(); // Refresh to show updated events
         }, 1500);
       } else {
         const errorData = await response.json();
@@ -428,6 +485,64 @@ export default function StudentDashboard() {
       setOtpError("An error occurred while verifying OTP. Please try again.");
     } finally {
       setIsVerifyingOtp(false);
+    }
+  };
+
+  // Handle rating submission
+  const handleRateEvent = (event) => {
+    setSelectedEventForRating(event);
+    setIsRatingModalOpen(true);
+    setRating(0);
+    setReview("");
+  };
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      alert("Please select a rating");
+      return;
+    }
+
+    setIsSubmittingRating(true);
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://127.0.0.1:8000/api/user/rate-event/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event_id: selectedEventForRating.eventid,
+          rating: rating,
+          review: review,
+        }),
+      });
+
+      if (response.ok) {
+        setIsRatingModalOpen(false);
+        // Refresh activity history
+        const historyResponse = await fetch("http://127.0.0.1:8000/api/user/activity-history/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (historyResponse.ok) {
+          const data = await historyResponse.json();
+          setActivityHistory(data);
+        }
+        alert("Thank you for your rating!");
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || "Failed to submit rating");
+      }
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      alert("An error occurred while submitting your rating");
+    } finally {
+      setIsSubmittingRating(false);
     }
   };
 
@@ -735,7 +850,7 @@ export default function StudentDashboard() {
           </TabsContent>
 
           <TabsContent value="my-events" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Upcoming Events</CardTitle>
@@ -744,37 +859,43 @@ export default function StudentDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {RegisteredEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {event.organization}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {event.date} • {event.time}
-                        </p>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {event.location}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <Badge
-                          variant={
-                            event.status === "Confirmed"
-                              ? "default"
-                              : "secondary"
-                          }
+                  {RegisteredEvents && RegisteredEvents.filter(event => event.status === "Registered" || event.status === "Upcoming").length > 0 ? (
+                    RegisteredEvents
+                      .filter(event => event.status === "Registered" || event.status === "Upcoming")
+                      .map((event) => (
+                        <div
+                          key={event.eventid}
+                          className="flex items-center justify-between p-4 border rounded-lg"
                         >
-                          {event.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.organization}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })} • {event.time}
+                            </p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {event.location}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="default">
+                              {event.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No upcoming events
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -782,17 +903,17 @@ export default function StudentDashboard() {
                 <CardHeader>
                   <CardTitle>Recent Activity</CardTitle>
                   <CardDescription>
-                    Your volunteer history and impact
+                    Your latest completed events
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {RegisteredEvents && RegisteredEvents.filter(event => event.status === "Completed").length > 0 ? (
-                    RegisteredEvents
+                  {ActivityHistory && ActivityHistory.filter(event => event.status === "Completed").length > 0 ? (
+                    ActivityHistory
                       .filter(event => event.status === "Completed")
-                      .slice(0, 2)
+                      .slice(0, 3)
                       .map((event) => (
                         <div
-                          key={event.id}
+                          key={event.eventid}
                           className="flex items-center justify-between p-4 border rounded-lg"
                         >
                           <div>
@@ -807,20 +928,109 @@ export default function StudentDashboard() {
                                 year: 'numeric'
                               })}
                             </p>
+                            <p className="text-sm text-green-600 font-medium">
+                              +{event.hours} hours
+                            </p>
                           </div>
                           <div className="text-right">
                             <Badge variant="outline" className="mb-1">
-                              {event.status}
+                              Completed
                             </Badge>
-                            <p className="text-sm text-muted-foreground">
-                              {event.time}
-                            </p>
+                            {event.rating && (
+                              <div className="flex items-center gap-1 text-yellow-500">
+                                <Star className="h-3 w-3 fill-current" />
+                                <span className="text-xs">{event.rating}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))
                   ) : (
                     <p className="text-sm text-gray-500 text-center py-4">
                       No completed events yet
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Full Activity History</CardTitle>
+                  <CardDescription>
+                    All your volunteer activities
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 max-h-96 overflow-y-auto">
+                  {ActivityHistory && ActivityHistory.length > 0 ? (
+                    ActivityHistory.map((event) => (
+                      <div
+                        key={event.eventid}
+                        className="p-4 border rounded-lg space-y-2"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.organization}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <Badge variant={event.status === "Completed" ? "outline" : "default"}>
+                            {event.status}
+                          </Badge>
+                        </div>
+                        
+                        {event.status === "Completed" && (
+                          <div className="pt-2 border-t">
+                            {event.rating ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Star
+                                        key={star}
+                                        className={`h-4 w-4 ${
+                                          star <= event.rating
+                                            ? "fill-yellow-400 text-yellow-400"
+                                            : "text-gray-300"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-sm text-muted-foreground">
+                                    Your rating
+                                  </span>
+                                </div>
+                                {event.review && (
+                                  <p className="text-xs text-muted-foreground italic">
+                                    "{event.review}"
+                                  </p>
+                                )}
+                              </div>
+                            ) : event.can_rate ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRateEvent(event)}
+                                className="w-full"
+                              >
+                                <Star className="h-3 w-3 mr-1" />
+                                Rate this event
+                              </Button>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No activity history yet
                     </p>
                   )}
                 </CardContent>
@@ -838,27 +1048,47 @@ export default function StudentDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockAchievements.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className={`p-4 border rounded-lg ${achievement.earned ? "bg-volunteer-50 border-volunteer-200" : "opacity-50"}`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{achievement.icon}</div>
-                        <div>
-                          <p className="font-medium">{achievement.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {achievement.description}
-                          </p>
-                          {achievement.earned && (
-                            <Badge variant="default" className="mt-2">
-                              Earned!
-                            </Badge>
-                          )}
+                  {Achievements && Achievements.length > 0 ? (
+                    Achievements.map((achievement) => (
+                      <div
+                        key={achievement.id}
+                        className={`p-4 border rounded-lg ${achievement.earned ? "bg-volunteer-50 border-volunteer-200" : "opacity-50 bg-gray-50"}`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-3xl">{achievement.icon}</div>
+                          <div className="flex-1">
+                            <p className="font-medium">{achievement.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {achievement.description}
+                            </p>
+                            {achievement.earned ? (
+                              <Badge variant="default" className="mt-2">
+                                Earned! ✓
+                              </Badge>
+                            ) : achievement.progress !== undefined ? (
+                              <div className="mt-2">
+                                <Progress 
+                                  value={(achievement.progress / achievement.target) * 100} 
+                                  className="h-2"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {achievement.progress} / {achievement.target}
+                                </p>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="mt-2">
+                                Locked
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4 col-span-2">
+                      Start volunteering to earn achievements!
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -871,27 +1101,27 @@ export default function StudentDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Community Builder (25 hours needed)</span>
-                    <span>47/25 hours</span>
-                  </div>
-                  <Progress value={100} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Achievement unlocked! 🎉
+                {Achievements && Achievements.filter(a => !a.earned && a.progress !== undefined).length > 0 ? (
+                  Achievements
+                    .filter(a => !a.earned && a.progress !== undefined)
+                    .slice(0, 3)
+                    .map((achievement) => (
+                      <div key={achievement.id}>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>{achievement.title}</span>
+                          <span>{achievement.progress}/{achievement.target} {achievement.category === 'hours' ? 'hours' : achievement.category}</span>
+                        </div>
+                        <Progress value={(achievement.progress / achievement.target) * 100} className="h-2" />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {achievement.target - achievement.progress} more to unlock!
+                        </p>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    All achievements unlocked or no progress yet!
                   </p>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Teaching Star (3 workshops needed)</span>
-                    <span>1/3 workshops</span>
-                  </div>
-                  <Progress value={33} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Lead 2 more educational workshops to unlock
-                  </p>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -1157,6 +1387,85 @@ export default function StudentDashboard() {
           <DialogFooter>
             <Button variant="outline" onClick={handleCloseModal}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Modal */}
+      <Dialog open={isRatingModalOpen} onOpenChange={setIsRatingModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rate Your Experience</DialogTitle>
+            <DialogDescription>
+              How was your experience with {selectedEventForRating?.organization}?
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEventForRating && (
+            <div className="space-y-6 py-4">
+              <div>
+                <p className="font-medium mb-2">{selectedEventForRating.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(selectedEventForRating.date).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Rating (1-5 stars)
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className="focus:outline-none"
+                    >
+                      <Star
+                        className={`h-8 w-8 ${
+                          star <= rating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        } hover:scale-110 transition-transform`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Review (Optional)
+                </label>
+                <Textarea
+                  placeholder="Share your experience with this event..."
+                  value={review}
+                  onChange={(e) => setReview(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsRatingModalOpen(false)}
+              disabled={isSubmittingRating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitRating}
+              disabled={isSubmittingRating || rating === 0}
+            >
+              {isSubmittingRating ? "Submitting..." : "Submit Rating"}
             </Button>
           </DialogFooter>
         </DialogContent>

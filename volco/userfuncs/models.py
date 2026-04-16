@@ -46,6 +46,9 @@ class EventRegistration(models.Model):
     statuses=[('Registered','Registered'),('Cancelled','Cancelled'),('Completed','Completed')]
     
     status = models.CharField(max_length=20, choices=statuses)  # Registered, Cancelled, Completed
+    rating = models.IntegerField(null=True, blank=True)  # 1-5 star rating
+    review = models.TextField(null=True, blank=True)  # Optional review text
+    rated_at = models.DateTimeField(null=True, blank=True)  # When rating was given
 
     class Meta:
         unique_together = ('user', 'event')  # prevent duplicate registration

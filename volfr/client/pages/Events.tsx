@@ -40,8 +40,11 @@ import {
   ChevronDown,
   X,
   Loader2,
+  ArrowLeft,
+  Settings,
+  LogOut,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState, useMemo, useEffect } from "react";
 
 const causes = [
@@ -74,9 +77,18 @@ export default function Events() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userType, setUserType] = useState(null);
+  const navigate = useNavigate();
 
   // Fetch events on component mount
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem("accessToken");
+    const user = localStorage.getItem("user");
+    setIsLoggedIn(!!token);
+    setUserType(user);
+
     async function loadEvents() {
       setLoading(true);
       setError(null);
@@ -90,7 +102,14 @@ export default function Events() {
           return;
         }
 
-        const res = await fetch("http://localhost:8000/api/user/events/", {
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (selectedCause !== "All") params.append("cause", selectedCause);
+        if (selectedCity !== "All") params.append("city", selectedCity);
+        if (selectedDifficulty !== "All") params.append("difficulty", selectedDifficulty);
+        if (searchQuery) params.append("search", searchQuery);
+
+        const res = await fetch(`http://localhost:8000/api/user/filter-events/?${params.toString()}`, {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${token}`,
@@ -115,7 +134,7 @@ export default function Events() {
     }
 
     loadEvents();
-  }, []);
+  }, [selectedCause, selectedCity, selectedDifficulty, searchQuery]);
 
   const clearFilters = () => {
     setSearchQuery("");
@@ -210,7 +229,15 @@ export default function Events() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(isLoggedIn ? (userType === 'ngo' ? '/ngo-dashboard' : '/student-dashboard') : '/')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
               <Link to="/" className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <Heart className="h-5 w-5 text-primary-foreground" />
@@ -221,21 +248,41 @@ export default function Events() {
               </Link>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <Link
-                to="/about"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                About
-              </Link>
-              <Link
-                to="/login"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Login
-              </Link>
-              <Button asChild>
-                <Link to="/register">Get Started</Link>
-              </Button>
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    to={userType === 'ngo' ? '/ngo-dashboard' : '/student-dashboard'}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    localStorage.clear();
+                    navigate('/login');
+                  }}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/about"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    About
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Button asChild>
+                    <Link to="/register">Get Started</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>

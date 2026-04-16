@@ -17,6 +17,7 @@ import About from "./pages/About";
 import Placeholder from "./pages/Placeholder";
 import NGODashboard from "./pages/NGODashboard";
 import StudentDashboard from "./pages/StudentDashboard";
+import ContactPage from "./pages/contact";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
           <Route path="/about" element={<About />} />
           <Route path="/ngo-dashboard" element={<NGODashboard />} />
           <Route path="/student-dashboard" element={<StudentDashboard />} />
+          <Route path="/contact" element={<ContactPage />} />
 
           {/* Additional placeholder routes */}
           <Route

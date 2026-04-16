@@ -13,10 +13,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate, login
-from .models import customUser,student
+from .models import customUser,student,ngo
 from rest_framework.authtoken.models import Token
 import json
-
+import random
+from django.core.mail import send_mail
+from .models import EmailOTP
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -32,6 +34,7 @@ def loginfunc(request):
     # Fetch user
     user = customUser.objects.filter(email=email).first()
     if user is None:
+        print('User not found')
         return Response({'success': False, 'message': 'User with this email does not exist.'}, status=400)
 
     # Validate password
@@ -49,6 +52,7 @@ def loginfunc(request):
     # Return tokens + user info
     return Response({
         'success': True,
+        'user': user.usertype,
         'access': access_token,
         'refresh': refresh_token,
         
@@ -63,13 +67,84 @@ def signupfunc(request):
 
         # Save to DB, e.g. Volunteer.objects.create(**data)
         
-        new_user = customUser(email=data['email'], username=data['fullName'],password=make_password(data['password']), usertype='user', location=data['location'], contact=data['contact'])
+        new_user = customUser(email=data['email'], username=data['fullName'],password=make_password(data['password']), usertype='user', location=data['location'], contact=data['contact'], interests=data['interests'], skills=data['skills'])
         new_user.save()
          # Generate slug after saving to get the ID
         new_user.slug = slugify(data['fullName'] + '-' + str(new_user.id))
         new_user.save()
-        student_profile = student(user=new_user, major=data['major'])
+        student_profile = student(user=new_user, major=data['major'],year=data['year'], college="Pune Institute of Computer Technology")
+        student_profile.save()
         return JsonResponse({"message": "Volunteer registered successfully!"})
     return JsonResponse({"error": "Invalid request"}, status=400)
 
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signupngofunc(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+
+        print(data)
+        # Save to DB, e.g. Volunteer.objects.create(**data)
+        new_user = customUser(
+            email=data['email'],
+            username=data['organizationName'],
+            password=make_password(data['password']), 
+            usertype='ngo', 
+            location=data['location'], 
+            contact=data['phone'])
+            
+        
+        new_user.save()
+        print(new_user.id)
+        #  # Generate slug after saving to get the ID
+        new_user.slug = slugify(data['organizationName'] + '-' + str(new_user.id))
+        new_user.save()
+        ngo_profile = ngo(user=new_user, address=data['address'],description=data['description'], focusAreas=data["focusAreas"],ngoid=data['darpanId'],contactperson=data['contactPerson'],website=data['website'])
+        ngo_profile.save()
+        return JsonResponse({"message": "Volunteer registered successfully!"})
+    return JsonResponse({"error": "Invalid request"}, status=400)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_otp(request):
+    email = request.data.get('email')  # or request.data['email'] for POST
+    print("Sending OTP to:", email)
+    otp = str(random.randint(100000, 999999))
+
+    # Save OTP in DB
+    EmailOTP.objects.create(email=email, otp=otp)
+
+    # Send Email
+    send_mail(
+        subject='Your OTP Code',
+        message=f'Your OTP is {otp}. It will expire in 5 minutes.',
+        from_email='ojsangwai17@gmail.com',
+        recipient_list=[email],
+        fail_silently=False,
+    )
+
+    return JsonResponse({'message': 'OTP sent successfully'})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    print("wtf")
+    print(request.data)
+    email = request.data.get('email')
+    otp = request.data.get('otp')
+
+    try:
+        record = EmailOTP.objects.filter(email=email).latest('created_at')
+    except EmailOTP.DoesNotExist:
+        return JsonResponse({'message': 'OTP not found'}, status=400)
+
+    if record.is_expired():
+        return JsonResponse({'message': 'OTP expired'}, status=400)
+
+    if record.otp != otp:
+        return JsonResponse({'message': 'Invalid OTP'}, status=400)
+
+    # ✅ Success
+    return JsonResponse({'message': 'OTP verified successfully'})
 # Create your views here.

@@ -29,7 +29,7 @@ import {
 import {
   Heart,
   Search,
-  Calendar as CalendarIcon,
+  Calendar,
   Users,
   Clock,
   MapPin,
@@ -39,139 +39,13 @@ import {
   Building2,
   ChevronDown,
   X,
+  Loader2,
+  ArrowLeft,
+  Settings,
+  LogOut,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-import { useState, useMemo } from "react";
-
-// Mock data for demonstration
-const mockEvents = [
-  {
-    id: 1,
-    title: "Community Garden Cleanup",
-    organization: "Green Earth Initiative",
-    organizationLogo: "🌱",
-    cause: "Environment",
-    date: "2024-02-15",
-    time: "9:00 AM - 1:00 PM",
-    location: "Aga Khan Palace Community Garden",
-    city: "Kalyani Nagar",
-    volunteersNeeded: 15,
-    volunteersRegistered: 12,
-    description:
-      "Help clean and maintain our community garden. We'll be removing weeds, planting new vegetables, and organizing the tool shed. Perfect for those who love being outdoors and making a tangible impact on their community. No gardening experience required - we'll provide training and all necessary tools!",
-    skills: ["Gardening", "Physical Labor", "Organization"],
-    difficulty: "Easy",
-    impact: "High",
-    featured: true,
-    rating: 4.8,
-    reviews: 24,
-  },
-  {
-    id: 2,
-    title: "Youth Coding Workshop",
-    organization: "Tech for All",
-    organizationLogo: "💻",
-    cause: "Education",
-    date: "2024-02-20",
-    time: "2:00 PM - 5:00 PM",
-    location: "Rajiv Gandhi IT Park",
-    city: "Hinjewadi",
-    volunteersNeeded: 8,
-    volunteersRegistered: 6,
-    description:
-      "Teach basic programming concepts to underprivileged youth aged 12-16. Help bridge the digital divide by sharing your coding knowledge. We'll cover HTML, CSS, and basic JavaScript through fun, interactive projects. Looking for volunteers with programming experience and patience for teaching.",
-    skills: ["Programming", "Teaching", "Patience"],
-    difficulty: "Medium",
-    impact: "Very High",
-    featured: false,
-    rating: 4.9,
-    reviews: 18,
-  },
-  {
-    id: 3,
-    title: "Food Bank Distribution",
-    organization: "Community Care Network",
-    organizationLogo: "🍞",
-    cause: "Community",
-    date: "2024-02-25",
-    time: "8:00 AM - 12:00 PM",
-    location: "Shaniwar Peth Community Center",
-    city: "Shaniwar Peth",
-    volunteersNeeded: 20,
-    volunteersRegistered: 18,
-    description:
-      "Sort and distribute food packages to families in need. Join our weekly food distribution program that serves over 200 families in our community. Tasks include sorting donations, packing family-sized meals, and helping with distribution. Great for groups and first-time volunteers.",
-    skills: ["Organization", "Communication", "Physical Labor"],
-    difficulty: "Easy",
-    impact: "High",
-    featured: true,
-    rating: 4.7,
-    reviews: 42,
-  },
-  {
-    id: 4,
-    title: "Senior Center Bingo Night",
-    organization: "Elder Care Foundation",
-    organizationLogo: "👴",
-    cause: "Community",
-    date: "2024-02-28",
-    time: "6:00 PM - 9:00 PM",
-    location: "Koregaon Park Senior Center",
-    city: "Koregaon Park",
-    volunteersNeeded: 6,
-    volunteersRegistered: 4,
-    description:
-      "Bring joy to senior residents through an evening of bingo and social interaction. Help set up the game, call numbers, assist residents, and provide companionship. This is a wonderful opportunity to connect with older adults and learn from their life experiences.",
-    skills: ["Communication", "Patience", "Social Skills"],
-    difficulty: "Easy",
-    impact: "Medium",
-    featured: false,
-    rating: 4.6,
-    reviews: 15,
-  },
-  {
-    id: 5,
-    title: "Lake Cleanup Initiative",
-    organization: "Ocean Conservation Society",
-    organizationLogo: "🌊",
-    cause: "Environment",
-    date: "2024-03-05",
-    time: "7:00 AM - 11:00 AM",
-    location: "Pashan Lake",
-    city: "Pashan",
-    volunteersNeeded: 25,
-    volunteersRegistered: 15,
-    description:
-      "Join our monthly lake cleanup to protect aquatic life and keep our beautiful Pashan Lake clean. We'll provide all cleanup materials, data collection sheets, and refreshments. Learn about water conservation while making a direct impact on the environment. Family-friendly event!",
-    skills: ["Environmental Awareness", "Physical Labor"],
-    difficulty: "Easy",
-    impact: "High",
-    featured: false,
-    rating: 4.9,
-    reviews: 33,
-  },
-  {
-    id: 6,
-    title: "Animal Shelter Care",
-    organization: "Paws & Hearts Rescue",
-    organizationLogo: "🐕",
-    cause: "Animals",
-    date: "2024-03-08",
-    time: "10:00 AM - 2:00 PM",
-    location: "Pune Animal Welfare Society",
-    city: "Sadashiv Peth",
-    volunteersNeeded: 12,
-    volunteersRegistered: 8,
-    description:
-      "Help care for rescued animals by cleaning kennels, feeding pets, and providing socialization. Great opportunity for animal lovers to make a difference in the lives of abandoned pets. Training provided for all tasks. Must be comfortable around dogs and cats.",
-    skills: ["Animal Care", "Physical Labor", "Compassion"],
-    difficulty: "Medium",
-    impact: "High",
-    featured: false,
-    rating: 4.8,
-    reviews: 27,
-  },
-];
+import { Link, useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
 
 const causes = [
   "All",
@@ -192,24 +66,91 @@ const cities = [
   "Sadashiv Peth",
 ];
 const difficulties = ["All", "Easy", "Medium", "Hard"];
-const timeCommitments = ["All", "2-4 hours", "4-6 hours", "6+ hours"];
 
 export default function Events() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCause, setSelectedCause] = useState("All");
   const [selectedCity, setSelectedCity] = useState("All");
   const [selectedDifficulty, setSelectedDifficulty] = useState("All");
-  const [selectedTimeCommitment, setSelectedTimeCommitment] = useState("All");
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false);
   const [sortBy, setSortBy] = useState("date");
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userType, setUserType] = useState(null);
+  const navigate = useNavigate();
+
+  // Fetch events on component mount
+  useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem("accessToken");
+    const user = localStorage.getItem("user");
+    setIsLoggedIn(!!token);
+    setUserType(user);
+
+    async function loadEvents() {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const token = localStorage.getItem("accessToken");
+
+        if (!token) {
+          setError("No access token found. Please log in.");
+          setLoading(false);
+          return;
+        }
+
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (selectedCause !== "All") params.append("cause", selectedCause);
+        if (selectedCity !== "All") params.append("city", selectedCity);
+        if (selectedDifficulty !== "All") params.append("difficulty", selectedDifficulty);
+        if (searchQuery) params.append("search", searchQuery);
+
+        const res = await fetch(`http://localhost:8000/api/user/filter-events/?${params.toString()}`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch events: ${res.status}`);
+        }
+
+        const data = await res.json();
+        console.log("Fetched events:", data);
+        
+        setEvents(data);
+      } catch (err) {
+        console.error("Error loading events:", err);
+        setError(err.message || "Failed to load events");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadEvents();
+  }, [selectedCause, selectedCity, selectedDifficulty, searchQuery]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedCause("All");
+    setSelectedCity("All");
+    setSelectedDifficulty("All");
+    setShowFeaturedOnly(false);
+  };
 
   // Filter and sort events
   const filteredAndSortedEvents = useMemo(() => {
-    let filtered = mockEvents.filter((event) => {
+    let filtered = events.filter((event) => {
       const matchesSearch =
-        event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.organization.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.description.toLowerCase().includes(searchQuery.toLowerCase());
+        event.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.organization?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.description?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCause =
         selectedCause === "All" || event.cause === selectedCause;
       const matchesCity = selectedCity === "All" || event.city === selectedCity;
@@ -232,14 +173,13 @@ export default function Events() {
         case "date":
           return new Date(a.date).getTime() - new Date(b.date).getTime();
         case "popularity":
-          return b.volunteersRegistered - a.volunteersRegistered;
+          return (b.volunteersRegistered || 0) - (a.volunteersRegistered || 0);
         case "rating":
-          return b.rating - a.rating;
+          return (b.rating || 0) - (a.rating || 0);
         case "impact":
           const impactOrder = { "Very High": 4, High: 3, Medium: 2, Low: 1 };
           return (
-            impactOrder[b.impact as keyof typeof impactOrder] -
-            impactOrder[a.impact as keyof typeof impactOrder]
+            (impactOrder[b.impact] || 0) - (impactOrder[a.impact] || 0)
           );
         default:
           return 0;
@@ -248,6 +188,7 @@ export default function Events() {
 
     return filtered;
   }, [
+    events,
     searchQuery,
     selectedCause,
     selectedCity,
@@ -256,16 +197,7 @@ export default function Events() {
     sortBy,
   ]);
 
-  const clearFilters = () => {
-    setSearchQuery("");
-    setSelectedCause("All");
-    setSelectedCity("All");
-    setSelectedDifficulty("All");
-    setSelectedTimeCommitment("All");
-    setShowFeaturedOnly(false);
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
       case "Easy":
         return "bg-green-100 text-green-800";
@@ -278,7 +210,7 @@ export default function Events() {
     }
   };
 
-  const getImpactColor = (impact: string) => {
+  const getImpactColor = (impact) => {
     switch (impact) {
       case "Very High":
         return "bg-purple-100 text-purple-800";
@@ -297,7 +229,15 @@ export default function Events() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(isLoggedIn ? (userType === 'ngo' ? '/ngo-dashboard' : '/student-dashboard') : '/')}
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
               <Link to="/" className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <Heart className="h-5 w-5 text-primary-foreground" />
@@ -308,21 +248,41 @@ export default function Events() {
               </Link>
             </div>
             <div className="hidden md:flex items-center space-x-8">
-              <Link
-                to="/about"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                About
-              </Link>
-              <Link
-                to="/login"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Login
-              </Link>
-              <Button asChild>
-                <Link to="/register">Get Started</Link>
-              </Button>
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    to={userType === 'ngo' ? '/ngo-dashboard' : '/student-dashboard'}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Dashboard
+                  </Link>
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    localStorage.clear();
+                    navigate('/login');
+                  }}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/about"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    About
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Login
+                  </Link>
+                  <Button asChild>
+                    <Link to="/register">Get Started</Link>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -336,7 +296,7 @@ export default function Events() {
           </h1>
           <p className="text-muted-foreground">
             Discover meaningful volunteer opportunities in your community.{" "}
-            {filteredAndSortedEvents.length} events available.
+            {loading ? "Loading..." : `${filteredAndSortedEvents.length} events available.`}
           </p>
         </div>
 
@@ -364,6 +324,7 @@ export default function Events() {
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="pl-10"
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -374,6 +335,7 @@ export default function Events() {
                   <Select
                     value={selectedCause}
                     onValueChange={setSelectedCause}
+                    disabled={loading}
                   >
                     <SelectTrigger className="mt-2">
                       <SelectValue />
@@ -391,7 +353,11 @@ export default function Events() {
                 {/* Location Filter */}
                 <div>
                   <Label className="text-sm font-medium">Location</Label>
-                  <Select value={selectedCity} onValueChange={setSelectedCity}>
+                  <Select 
+                    value={selectedCity} 
+                    onValueChange={setSelectedCity}
+                    disabled={loading}
+                  >
                     <SelectTrigger className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
@@ -411,6 +377,7 @@ export default function Events() {
                   <Select
                     value={selectedDifficulty}
                     onValueChange={setSelectedDifficulty}
+                    disabled={loading}
                   >
                     <SelectTrigger className="mt-2">
                       <SelectValue />
@@ -433,6 +400,7 @@ export default function Events() {
                     onCheckedChange={(checked) =>
                       setShowFeaturedOnly(checked === true)
                     }
+                    disabled={loading}
                   />
                   <Label htmlFor="featured" className="text-sm font-medium">
                     Featured events only
@@ -445,6 +413,7 @@ export default function Events() {
                   variant="outline"
                   onClick={clearFilters}
                   className="w-full"
+                  disabled={loading}
                 >
                   <X className="h-4 w-4 mr-2" />
                   Clear Filters
@@ -459,7 +428,7 @@ export default function Events() {
             <div className="flex justify-between items-center mb-6">
               <Sheet>
                 <SheetTrigger asChild>
-                  <Button variant="outline" className="lg:hidden">
+                  <Button variant="outline" className="lg:hidden" disabled={loading}>
                     <SlidersHorizontal className="h-4 w-4 mr-2" />
                     Filters
                   </Button>
@@ -468,17 +437,12 @@ export default function Events() {
                   <SheetHeader>
                     <SheetTitle>Filter Events</SheetTitle>
                     <SheetDescription>
-                      Refine your search to find the perfect volunteer
-                      opportunity
+                      Refine your search to find the perfect volunteer opportunity
                     </SheetDescription>
                   </SheetHeader>
                   <div className="mt-6 space-y-6">
-                    {/* Mobile filters - same as desktop but in sheet */}
                     <div>
-                      <Label
-                        htmlFor="mobile-search"
-                        className="text-sm font-medium"
-                      >
+                      <Label htmlFor="mobile-search" className="text-sm font-medium">
                         Search
                       </Label>
                       <div className="relative mt-2">
@@ -556,10 +520,8 @@ export default function Events() {
               </Sheet>
 
               <div className="flex items-center space-x-2">
-                <Label className="text-sm text-muted-foreground">
-                  Sort by:
-                </Label>
-                <Select value={sortBy} onValueChange={setSortBy}>
+                <Label className="text-sm text-muted-foreground">Sort by:</Label>
+                <Select value={sortBy} onValueChange={setSortBy} disabled={loading}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -573,169 +535,214 @@ export default function Events() {
               </div>
             </div>
 
+            {/* Loading State */}
+            {loading && (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Loading events...</h3>
+                  <p className="text-muted-foreground text-center">
+                    Please wait while we fetch the latest volunteer opportunities.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <X className="h-12 w-12 text-destructive mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Error loading events</h3>
+                  <p className="text-muted-foreground text-center mb-4">{error}</p>
+                  <Button onClick={() => window.location.reload()}>
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Events Grid */}
-            <div className="space-y-6">
-              {filteredAndSortedEvents.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <Search className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">
-                      No events found
-                    </h3>
-                    <p className="text-muted-foreground text-center mb-4">
-                      Try adjusting your search criteria or clearing the filters
-                      to see more events.
-                    </p>
-                    <Button variant="outline" onClick={clearFilters}>
-                      Clear Filters
-                    </Button>
-                  </CardContent>
-                </Card>
-              ) : (
-                filteredAndSortedEvents.map((event) => (
-                  <Card
-                    key={event.id}
-                    className="hover:shadow-md transition-shadow"
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex flex-col lg:flex-row gap-6">
-                        {/* Event Info */}
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between mb-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="text-xl font-semibold">
-                                  {event.title}
-                                </h3>
-                                {event.featured && (
-                                  <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-                                    Featured
-                                  </Badge>
-                                )}
-                              </div>
-                              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
-                                <div className="flex items-center space-x-1">
-                                  <span className="text-lg">
-                                    {event.organizationLogo}
-                                  </span>
-                                  <span>{event.organization}</span>
-                                </div>
-                                <div className="flex items-center space-x-1">
-                                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                  <span>{event.rating}</span>
-                                  <span>({event.reviews})</span>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap gap-2 mb-3">
-                                <Badge variant="outline">{event.cause}</Badge>
-                                <Badge
-                                  className={getDifficultyColor(
-                                    event.difficulty,
-                                  )}
-                                  variant="secondary"
-                                >
-                                  {event.difficulty}
-                                </Badge>
-                                <Badge
-                                  className={getImpactColor(event.impact)}
-                                  variant="secondary"
-                                >
-                                  {event.impact} Impact
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-
-                          <p className="text-muted-foreground mb-4 line-clamp-3">
-                            {event.description}
-                          </p>
-
-                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
-                            <div className="flex items-center gap-2">
-                              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-                              <span>{event.date}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4 text-muted-foreground" />
-                              <span>{event.time}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-muted-foreground" />
-                              <span>{event.city}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span>
-                                {event.volunteersRegistered}/
-                                {event.volunteersNeeded} spots
-                              </span>
-                            </div>
-                          </div>
-
-                          {event.skills.length > 0 && (
-                            <div className="mb-4">
-                              <p className="text-sm font-medium mb-2">
-                                Skills involved:
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {event.skills.map((skill, index) => (
-                                  <Badge
-                                    key={index}
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
-                                    {skill}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action Section */}
-                        <div className="lg:w-48 flex flex-col justify-between">
-                          <div className="space-y-3">
-                            <div className="text-center">
-                              <p className="text-2xl font-bold text-primary">
-                                {Math.round(
-                                  (event.volunteersRegistered /
-                                    event.volunteersNeeded) *
-                                    100,
-                                )}
-                                %
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                filled
-                              </p>
-                            </div>
-
-                            <div className="space-y-2">
-                              <Button className="w-full">Register Now</Button>
-                              <Button
-                                variant="outline"
-                                className="w-full"
-                                size="sm"
-                              >
-                                Learn More
-                              </Button>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 pt-4 border-t">
-                            <p className="text-xs text-muted-foreground text-center">
-                              {event.location}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+            {!loading && !error && (
+              <div className="space-y-6">
+                {filteredAndSortedEvents.length === 0 ? (
+                  <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12">
+                      <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No events found</h3>
+                      <p className="text-muted-foreground text-center mb-4">
+                        Try adjusting your search criteria or clearing the filters
+                        to see more events.
+                      </p>
+                      <Button variant="outline" onClick={clearFilters}>
+                        Clear Filters
+                      </Button>
                     </CardContent>
                   </Card>
-                ))
-              )}
-            </div>
+                ) : (
+                  filteredAndSortedEvents.map((event) => (
+                    <Card
+                      key={event.id}
+                      className="hover:shadow-md transition-shadow"
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          {/* Event Info */}
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between mb-4">
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h3 className="text-xl font-semibold">
+                                    {event.title}
+                                  </h3>
+                                  {event.featured && (
+                                    <Badge className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
+                                      Featured
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-2">
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-lg">
+                                      {event.organizationLogo || "🏢"}
+                                    </span>
+                                    <span>{event.organization}</span>
+                                  </div>
+                                  {event.rating && (
+                                    <div className="flex items-center space-x-1">
+                                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                      <span>{event.rating}</span>
+                                      <span>({event.reviews || 0})</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-2 mb-3">
+                                  {event.cause && (
+                                    <Badge variant="outline">{event.cause}</Badge>
+                                  )}
+                                  {event.difficulty && (
+                                    <Badge
+                                      className={getDifficultyColor(event.difficulty)}
+                                      variant="secondary"
+                                    >
+                                      {event.difficulty}
+                                    </Badge>
+                                  )}
+                                  {event.impact && (
+                                    <Badge
+                                      className={getImpactColor(event.impact)}
+                                      variant="secondary"
+                                    >
+                                      {event.impact} Impact
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <p className="text-muted-foreground mb-4 line-clamp-3">
+                              {event.description}
+                            </p>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm mb-4">
+                              {event.date && (
+                                <div className="flex items-center gap-2">
+                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <span>{event.date}</span>
+                                </div>
+                              )}
+                              {event.time && (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="h-4 w-4 text-muted-foreground" />
+                                  <span>{event.time}</span>
+                                </div>
+                              )}
+                              {event.city && (
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                                  <span>{event.city}</span>
+                                </div>
+                              )}
+                              {event.volunteersNeeded && (
+                                <div className="flex items-center gap-2">
+                                  <Users className="h-4 w-4 text-muted-foreground" />
+                                  <span>
+                                    {event.volunteersRegistered || 0}/
+                                    {event.volunteersNeeded} spots
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {event.skills && event.skills.length > 0 && (
+                              <div className="mb-4">
+                                <p className="text-sm font-medium mb-2">
+                                  Skills involved:
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {event.skills.map((skill, index) => (
+                                    <Badge
+                                      key={index}
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      {skill}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Section */}
+                          <div className="lg:w-48 flex flex-col justify-between">
+                            <div className="space-y-3">
+                              {event.volunteersNeeded && (
+                                <div className="text-center">
+                                  <p className="text-2xl font-bold text-primary">
+                                    {Math.round(
+                                      ((event.volunteersRegistered || 0) /
+                                        event.volunteersNeeded) *
+                                      100
+                                    )}
+                                    %
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    filled
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="space-y-2">
+                                <Button className="w-full">Register Now</Button>
+                                <Button
+                                  variant="outline"
+                                  className="w-full"
+                                  size="sm"
+                                >
+                                  Learn More
+                                </Button>
+                              </div>
+                            </div>
+
+                            {event.location && (
+                              <div className="mt-4 pt-4 border-t">
+                                <p className="text-xs text-muted-foreground text-center">
+                                  {event.location}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* Load More Button */}
-            {filteredAndSortedEvents.length > 0 && (
+            {!loading && !error && filteredAndSortedEvents.length > 0 && (
               <div className="text-center mt-8">
                 <Button variant="outline" className="px-8">
                   Load More Events

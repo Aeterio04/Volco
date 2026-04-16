@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+
 import {
   Card,
   CardContent,
@@ -19,6 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Heart,
   Search,
   Calendar as CalendarIcon,
@@ -34,9 +44,12 @@ import {
   Star,
   UserCheck,
   Globe,
+  Mail,
+  CheckCircle,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, redirect } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { set } from "date-fns";
 
 // Mock data for demonstration
 const mockRecommendedEvents = [
@@ -98,8 +111,7 @@ const mockRegisteredEvents = [
     date: "2024-02-10",
     time: "7:00 AM - 11:00 AM",
     location: "Pashan Lake",
-    status: "Confirmed",
-    hoursLogged: 4,
+    status: "Upcoming",
   },
   {
     id: 5,
@@ -109,8 +121,7 @@ const mockRegisteredEvents = [
     date: "2024-02-18",
     time: "1:00 PM - 4:00 PM",
     location: "Koregaon Park Senior Center",
-    status: "Confirmed",
-    hoursLogged: 0,
+    status: "Upcoming",
   },
 ];
 
@@ -149,7 +160,18 @@ export default function StudentDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [causeFilter, setCauseFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("discover");
-
+  const [RecommendedEvents, setRecommendedEvents] = useState(mockRecommendedEvents);
+  const [RegisteredEvents, setRegisteredEvents] = useState(mockRegisteredEvents);
+  const [ActivityHistory, setActivityHistory] = useState([]);
+  const [Achievements, setAchievements] = useState([]);
+  const [userStats, setUserStats] = useState({
+    total_events: 0,
+    user_events: 0,
+    completed_events: 0,
+    organizations_helped: 0,
+    impactLevel: "Beginner",
+  });
+  const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     // Try to load from localStorage, else use default
     const stored = localStorage.getItem("studentUser");
@@ -163,12 +185,29 @@ export default function StudentDashboard() {
       contact: "123-456-7890",
     };
   });
-  
+
+  // Modal and OTP states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [isLoadingOtp, setIsLoadingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [otpSuccess, setOtpSuccess] = useState(false);
+
+  // Rating modal states
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [selectedEventForRating, setSelectedEventForRating] = useState(null);
+  const [rating, setRating] = useState(0);
+  const [review, setReview] = useState("");
+  const [isSubmittingRating, setIsSubmittingRating] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem("accessToken");
+        console.log("Using token:", token);
         if (!token) return; // user not logged in
 
         const response = await fetch("http://127.0.0.1:8000/api/user/", {
@@ -182,8 +221,64 @@ export default function StudentDashboard() {
         if (response.ok) {
           const data = await response.json();
           setUser(data);
+          setRecommendedEvents(data.recommended_events);
           console.log("Fetched user data:", data);
           localStorage.setItem("studentUser", JSON.stringify(data));
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+          console.log("Redirecting to login due to invalid token");
+          window.location.href = "/";
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+          window.location.href = "/";
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    const fetchUserStats = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
+
+        const response = await fetch("http://127.0.0.1:8000/api/userstats/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserStats(data);
+          console.log("Fetched user stats:", data);
+        } else if (response.status === 401) {
+          console.warn("Token expired or invalid — consider refreshing here");
+        } else {
+          console.error("Failed to fetch user data:", response.status);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    const fetchRegisteredEvents = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return; // user not logged in
+
+        const response = await fetch("http://127.0.0.1:8000/api/userregistrations/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setRegisteredEvents(data);
+          console.log("Fetched user registered events:", data);
         } else if (response.status === 401) {
           console.warn("Token expired or invalid — consider refreshing here");
         } else {
@@ -194,16 +289,264 @@ export default function StudentDashboard() {
       }
     };
 
+    const fetchActivityHistory = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        const response = await fetch("http://127.0.0.1:8000/api/user/activity-history/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setActivityHistory(data);
+          console.log("Fetched activity history:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching activity history:", error);
+      }
+    };
+
+    const fetchAchievements = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+
+        const response = await fetch("http://127.0.0.1:8000/api/user/achievements/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAchievements(data.achievements);
+          console.log("Fetched achievements:", data);
+        }
+      } catch (error) {
+        console.error("Error fetching achievements:", error);
+      }
+    };
+
+    fetchUserStats();
     fetchUserData();
+    fetchRegisteredEvents();
+    fetchActivityHistory();
+    fetchAchievements();
   }, []);
 
   if (!user) return <p>Loading user info...</p>;
 
- 
+  // Handle opening registration modal
+  const handleRegisterClick = (event) => {
+    console.log("Registering for event:", event);
+    setSelectedEvent(event);
+    setIsModalOpen(true);
+    setOtpSent(false);
+    setOtp(["", "", "", "", "", ""]);
+    setOtpError("");
+    setOtpSuccess(false);
+  };
 
+  // Handle closing modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedEvent(null);
+    setOtpSent(false);
+    setOtp(["", "", "", "", "", ""]);
+    setOtpError("");
+    setOtpSuccess(false);
+  };
 
+  // Send OTP
+  const handleSendOtp = async () => {
+    setIsLoadingOtp(true);
+    setOtpError("");
+    console.log("Sending OTP to:", user.email);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://127.0.0.1:8000/api/send-otp/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+        }),
+      });
 
-  const filteredEvents = mockRecommendedEvents.filter((event) => {
+      if (response.ok) {
+        setOtpSent(true);
+        setOtpError("");
+      } else {
+        const errorData = await response.json();
+        setOtpError(errorData.message || "Failed to send OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      setOtpError("An error occurred while sending OTP. Please try again.");
+    } finally {
+      setIsLoadingOtp(false);
+    }
+  };
+
+  // Handle OTP input change
+  const handleOtpChange = (index, value) => {
+    if (value.length > 1) {
+      value = value[0];
+    }
+    
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    // Auto-focus next input
+    if (value && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) nextInput.focus();
+    }
+  };
+
+  // Handle OTP input keydown
+  const handleOtpKeyDown = (index, e) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
+  // Verify OTP
+  const handleVerifyOtp = async (id: number) => {
+    const otpString = otp.join("");
+    
+    if (otpString.length !== 6) {
+      setOtpError("Please enter a complete 6-digit OTP.");
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    setOtpError("");
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://127.0.0.1:8000/api/verify-otp/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          otp: otpString,
+          
+        }),
+      });
+
+      if (response.ok) {
+        setOtpSuccess(true);
+        console.log("OTP verified successfully for event ID:", id);
+        setOtpError("");
+        const response = await fetch("http://127.0.0.1:8000/api/setevent/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: user.email,
+          id: id,
+        }),
+      });
+        
+        
+        // Close modal after successful verification
+        setTimeout(() => {
+          handleCloseModal();
+          window.location.reload(); // Refresh to show updated events
+        }, 1500);
+      } else {
+        const errorData = await response.json();
+        setOtpError(errorData.message || "Invalid OTP. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error verifying OTP:", error);
+      setOtpError("An error occurred while verifying OTP. Please try again.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  // Handle rating submission
+  const handleRateEvent = (event) => {
+    setSelectedEventForRating(event);
+    setIsRatingModalOpen(true);
+    setRating(0);
+    setReview("");
+  };
+
+  const handleSubmitRating = async () => {
+    if (rating === 0) {
+      alert("Please select a rating");
+      return;
+    }
+
+    setIsSubmittingRating(true);
+
+    try {
+      const token = localStorage.getItem("accessToken");
+      const response = await fetch("http://127.0.0.1:8000/api/user/rate-event/", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event_id: selectedEventForRating.eventid,
+          rating: rating,
+          review: review,
+        }),
+      });
+
+      if (response.ok) {
+        setIsRatingModalOpen(false);
+        // Refresh activity history
+        const historyResponse = await fetch("http://127.0.0.1:8000/api/user/activity-history/", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (historyResponse.ok) {
+          const data = await historyResponse.json();
+          setActivityHistory(data);
+        }
+        alert("Thank you for your rating!");
+      } else {
+        const errorData = await response.json();
+        alert(errorData.message || "Failed to submit rating");
+      }
+    } catch (error) {
+      console.error("Error submitting rating:", error);
+      alert("An error occurred while submitting your rating");
+    } finally {
+      setIsSubmittingRating(false);
+    }
+  };
+
+  const filteredEvents = RecommendedEvents.filter((event) => {
     const matchesSearch =
       event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.organization.toLowerCase().includes(searchQuery.toLowerCase());
@@ -213,7 +556,10 @@ export default function StudentDashboard() {
     return matchesSearch && matchesCause;
   });
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getevents=()=>{
+    navigate("/events");
+  };
+  const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
       case "Easy":
         return "bg-green-100 text-green-800";
@@ -226,7 +572,7 @@ export default function StudentDashboard() {
     }
   };
 
-  const getImpactColor = (impact: string) => {
+  const getImpactColor = (impact) => {
     switch (impact) {
       case "Very High":
         return "bg-purple-100 text-purple-800";
@@ -265,7 +611,8 @@ export default function StudentDashboard() {
                 <Settings className="h-4 w-4 mr-2" />
                 Settings
               </Button>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild onClick={()=>{localStorage.clear();
+}}>
                 <Link to="/login">
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
@@ -282,17 +629,15 @@ export default function StudentDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-foreground">
-                Welcome back, Sarah!
+                Welcome back, {user.username}!
               </h1>
               <p className="text-muted-foreground mt-1">
                 Ready to make a difference today?
               </p>
             </div>
-            <Button asChild>
-              <Link to="/events" className="flex items-center gap-2">
-                <Search className="h-4 w-4" />
+            <Button onClick={getevents} >
+              <Search className="h-4 w-4" />
                 Browse All Events
-              </Link>
             </Button>
           </div>
         </div>
@@ -302,12 +647,12 @@ export default function StudentDashboard() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                Volunteer Hours
+                Events Participated
               </CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">47</div>
+              <div className="text-2xl font-bold">{userStats.user_events}</div>
               <p className="text-xs text-muted-foreground">+12 this month</p>
             </CardContent>
           </Card>
@@ -320,8 +665,8 @@ export default function StudentDashboard() {
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">8</div>
-              <p className="text-xs text-muted-foreground">+2 this month</p>
+              <div className="text-2xl font-bold">{userStats.completed_events}</div>
+              <p className="text-xs text-muted-foreground"></p>
             </CardContent>
           </Card>
 
@@ -333,7 +678,7 @@ export default function StudentDashboard() {
               <Globe className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">{userStats.organizations_helped}</div>
               <p className="text-xs text-muted-foreground">
                 All different causes
               </p>
@@ -348,7 +693,7 @@ export default function StudentDashboard() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">Rising Star</div>
+              <div className="text-2xl font-bold">{userStats.impactLevel}</div>
               <p className="text-xs text-muted-foreground">Keep it up!</p>
             </CardContent>
           </Card>
@@ -492,7 +837,9 @@ export default function StudentDashboard() {
                             }
                             className="flex-1 mr-4"
                           />
-                          <Button>Register Now</Button>
+                          <Button onClick={() => handleRegisterClick(event)}>
+                            Register Now
+                          </Button>
                         </div>
                       </CardContent>
                     </Card>
@@ -503,7 +850,7 @@ export default function StudentDashboard() {
           </TabsContent>
 
           <TabsContent value="my-events" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Upcoming Events</CardTitle>
@@ -512,37 +859,43 @@ export default function StudentDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {mockRegisteredEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center justify-between p-4 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {event.organization}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {event.date} • {event.time}
-                        </p>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {event.location}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <Badge
-                          variant={
-                            event.status === "Confirmed"
-                              ? "default"
-                              : "secondary"
-                          }
+                  {RegisteredEvents && RegisteredEvents.filter(event => event.status === "Registered" || event.status === "Upcoming").length > 0 ? (
+                    RegisteredEvents
+                      .filter(event => event.status === "Registered" || event.status === "Upcoming")
+                      .map((event) => (
+                        <div
+                          key={event.eventid}
+                          className="flex items-center justify-between p-4 border rounded-lg"
                         >
-                          {event.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.organization}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })} • {event.time}
+                            </p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <MapPin className="h-3 w-3" />
+                              {event.location}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="default">
+                              {event.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No upcoming events
+                    </p>
+                  )}
                 </CardContent>
               </Card>
 
@@ -550,49 +903,136 @@ export default function StudentDashboard() {
                 <CardHeader>
                   <CardTitle>Recent Activity</CardTitle>
                   <CardDescription>
-                    Your volunteer history and impact
+                    Your latest completed events
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Lake Cleanup Day</p>
-                      <p className="text-sm text-muted-foreground">
-                        Ocean Conservation Society
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Feb 10, 2024
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="mb-1">
-                        Completed
-                      </Badge>
-                      <p className="text-sm text-muted-foreground">
-                        4 hours logged
-                      </p>
-                    </div>
-                  </div>
+                  {ActivityHistory && ActivityHistory.filter(event => event.status === "Completed").length > 0 ? (
+                    ActivityHistory
+                      .filter(event => event.status === "Completed")
+                      .slice(0, 3)
+                      .map((event) => (
+                        <div
+                          key={event.eventid}
+                          className="flex items-center justify-between p-4 border rounded-lg"
+                        >
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.organization}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </p>
+                            <p className="text-sm text-green-600 font-medium">
+                              +{event.hours} hours
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="mb-1">
+                              Completed
+                            </Badge>
+                            {event.rating && (
+                              <div className="flex items-center gap-1 text-yellow-500">
+                                <Star className="h-3 w-3 fill-current" />
+                                <span className="text-xs">{event.rating}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No completed events yet
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
-                  <div className="flex items-center justify-between p-4 border rounded-lg">
-                    <div>
-                      <p className="font-medium">Library Reading Program</p>
-                      <p className="text-sm text-muted-foreground">
-                        City Library Foundation
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Feb 5, 2024
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="outline" className="mb-1">
-                        Completed
-                      </Badge>
-                      <p className="text-sm text-muted-foreground">
-                        3 hours logged
-                      </p>
-                    </div>
-                  </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Full Activity History</CardTitle>
+                  <CardDescription>
+                    All your volunteer activities
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 max-h-96 overflow-y-auto">
+                  {ActivityHistory && ActivityHistory.length > 0 ? (
+                    ActivityHistory.map((event) => (
+                      <div
+                        key={event.eventid}
+                        className="p-4 border rounded-lg space-y-2"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">{event.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {event.organization}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(event.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </p>
+                          </div>
+                          <Badge variant={event.status === "Completed" ? "outline" : "default"}>
+                            {event.status}
+                          </Badge>
+                        </div>
+                        
+                        {event.status === "Completed" && (
+                          <div className="pt-2 border-t">
+                            {event.rating ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <Star
+                                        key={star}
+                                        className={`h-4 w-4 ${
+                                          star <= event.rating
+                                            ? "fill-yellow-400 text-yellow-400"
+                                            : "text-gray-300"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-sm text-muted-foreground">
+                                    Your rating
+                                  </span>
+                                </div>
+                                {event.review && (
+                                  <p className="text-xs text-muted-foreground italic">
+                                    "{event.review}"
+                                  </p>
+                                )}
+                              </div>
+                            ) : event.can_rate ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRateEvent(event)}
+                                className="w-full"
+                              >
+                                <Star className="h-3 w-3 mr-1" />
+                                Rate this event
+                              </Button>
+                            ) : null}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      No activity history yet
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -608,27 +1048,47 @@ export default function StudentDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {mockAchievements.map((achievement) => (
-                    <div
-                      key={achievement.id}
-                      className={`p-4 border rounded-lg ${achievement.earned ? "bg-volunteer-50 border-volunteer-200" : "opacity-50"}`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="text-2xl">{achievement.icon}</div>
-                        <div>
-                          <p className="font-medium">{achievement.title}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {achievement.description}
-                          </p>
-                          {achievement.earned && (
-                            <Badge variant="default" className="mt-2">
-                              Earned!
-                            </Badge>
-                          )}
+                  {Achievements && Achievements.length > 0 ? (
+                    Achievements.map((achievement) => (
+                      <div
+                        key={achievement.id}
+                        className={`p-4 border rounded-lg ${achievement.earned ? "bg-volunteer-50 border-volunteer-200" : "opacity-50 bg-gray-50"}`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="text-3xl">{achievement.icon}</div>
+                          <div className="flex-1">
+                            <p className="font-medium">{achievement.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {achievement.description}
+                            </p>
+                            {achievement.earned ? (
+                              <Badge variant="default" className="mt-2">
+                                Earned! ✓
+                              </Badge>
+                            ) : achievement.progress !== undefined ? (
+                              <div className="mt-2">
+                                <Progress 
+                                  value={(achievement.progress / achievement.target) * 100} 
+                                  className="h-2"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {achievement.progress} / {achievement.target}
+                                </p>
+                              </div>
+                            ) : (
+                              <Badge variant="outline" className="mt-2">
+                                Locked
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4 col-span-2">
+                      Start volunteering to earn achievements!
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -641,27 +1101,27 @@ export default function StudentDashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Community Builder (25 hours needed)</span>
-                    <span>47/25 hours</span>
-                  </div>
-                  <Progress value={100} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Achievement unlocked! 🎉
+                {Achievements && Achievements.filter(a => !a.earned && a.progress !== undefined).length > 0 ? (
+                  Achievements
+                    .filter(a => !a.earned && a.progress !== undefined)
+                    .slice(0, 3)
+                    .map((achievement) => (
+                      <div key={achievement.id}>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span>{achievement.title}</span>
+                          <span>{achievement.progress}/{achievement.target} {achievement.category === 'hours' ? 'hours' : achievement.category}</span>
+                        </div>
+                        <Progress value={(achievement.progress / achievement.target) * 100} className="h-2" />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {achievement.target - achievement.progress} more to unlock!
+                        </p>
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    All achievements unlocked or no progress yet!
                   </p>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>Teaching Star (3 workshops needed)</span>
-                    <span>1/3 workshops</span>
-                  </div>
-                  <Progress value={33} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Lead 2 more educational workshops to unlock
-                  </p>
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -681,11 +1141,8 @@ export default function StudentDashboard() {
                       <AvatarFallback className="text-lg">SJ</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="text-lg font-medium">Sarah Johnson</h3>
-                      <p className="text-muted-foreground">
-                        Computer Science Major
-                      </p>
-                      <p className="text-muted-foreground">State University</p>
+                      <h3 className="text-lg font-medium">{user.username}</h3>
+                      <p className="text-muted-foreground">{user.college}</p>
                     </div>
                   </div>
 
@@ -693,21 +1150,21 @@ export default function StudentDashboard() {
                     <div>
                       <p className="font-medium">Email</p>
                       <p className="text-muted-foreground">
-                        sarah@university.edu
+                        {user.email}
                       </p>
                     </div>
                     <div>
                       <p className="font-medium">Academic Year</p>
-                      <p className="text-muted-foreground">Junior</p>
+                      <p className="text-muted-foreground">{user.year}</p>
                     </div>
                     <div>
                       <p className="font-medium">Volunteer Since</p>
-                      <p className="text-muted-foreground">September 2023</p>
+                      <p className="text-muted-foreground">{user.usersince}</p>
                     </div>
                     <div>
-                      <p className="font-medium">Preferred Causes</p>
+                      <p className="font-medium">Total Activites</p>
                       <p className="text-muted-foreground">
-                        Education, Environment
+                        {userStats.user_events} events
                       </p>
                     </div>
                   </div>
@@ -728,19 +1185,30 @@ export default function StudentDashboard() {
                     <div>
                       <p className="font-medium text-sm mb-2">Skills</p>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">Teaching</Badge>
-                        <Badge variant="outline">Programming</Badge>
-                        <Badge variant="outline">Communication</Badge>
-                        <Badge variant="outline">Leadership</Badge>
+                        {user.skills && user.skills.length > 0 ? (
+                          user.skills.map((skill) => (
+                            <Badge key={skill} variant="outline">
+                              {skill}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No skills added yet</p>
+                        )}
                       </div>
                     </div>
 
                     <div>
                       <p className="font-medium text-sm mb-2">Interests</p>
                       <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">Education</Badge>
-                        <Badge variant="outline">Environment</Badge>
-                        <Badge variant="outline">Technology</Badge>
+                        {user.interests && user.interests.length > 0 ? (
+                          user.interests.map((interest) => (
+                            <Badge key={interest} variant="outline">
+                              {interest}
+                            </Badge>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-500">No interests added yet</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -750,6 +1218,258 @@ export default function StudentDashboard() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Registration Modal with OTP Verification */}
+      <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">
+              {selectedEvent?.title}
+            </DialogTitle>
+            <DialogDescription>
+              Review event details and verify your registration
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEvent && (
+            <div className="space-y-6 py-4">
+              {/* Event Details */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{selectedEvent.cause}</Badge>
+                  <Badge className={getDifficultyColor(selectedEvent.difficulty)}>
+                    {selectedEvent.difficulty}
+                  </Badge>
+                  <Badge className={getImpactColor(selectedEvent.impact)}>
+                    {selectedEvent.impact}
+                  </Badge>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Organization</h4>
+                  <p className="text-muted-foreground">{selectedEvent.organization}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Description</h4>
+                  <p className="text-muted-foreground">{selectedEvent.description}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4" />
+                      Date
+                    </h4>
+                    <p className="text-muted-foreground">{selectedEvent.date}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Time
+                    </h4>
+                    <p className="text-muted-foreground">{selectedEvent.time}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Location
+                  </h4>
+                  <p className="text-muted-foreground">{selectedEvent.location}</p>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    Volunteers
+                  </h4>
+                  <p className="text-muted-foreground">
+                    {selectedEvent.volunteersRegistered} / {selectedEvent.volunteersNeeded} registered
+                  </p>
+                  <Progress
+                    value={(selectedEvent.volunteersRegistered / selectedEvent.volunteersNeeded) * 100}
+                    className="mt-2"
+                  />
+                </div>
+
+                {selectedEvent.skills && selectedEvent.skills.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-2">Required Skills</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedEvent.skills.map((skill, index) => (
+                        <Badge key={index} variant="outline">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* OTP Section */}
+              <div className="border-t pt-6">
+                {!otpSent ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="h-4 w-4" />
+                      <span>We'll send a verification code to {user.email}</span>
+                    </div>
+                    <Button
+                      onClick={handleSendOtp}
+                      disabled={isLoadingOtp}
+                      className="w-full"
+                    >
+                      {isLoadingOtp ? "Sending OTP..." : "Send Verification Code"}
+                    </Button>
+                  </div>
+                ) : !otpSuccess ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold mb-2">Enter Verification Code</h4>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        We've sent a 6-digit code to {user.email}
+                      </p>
+                      
+                      <div className="flex gap-2 justify-center">
+                        {otp.map((digit, index) => (
+                          <Input
+                            key={index}
+                            id={`otp-${index}`}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleOtpChange(index, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                            className="w-12 h-12 text-center text-lg font-semibold"
+                          />
+                        ))}
+                      </div>
+
+                      {otpError && (
+                        <p className="text-sm text-red-500 mt-2 text-center">{otpError}</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={handleSendOtp}
+                        disabled={isLoadingOtp}
+                        className="flex-1"
+                      >
+                        Resend Code{selectedEvent.id}
+                      </Button>
+                      <Button
+                        onClick={() => handleVerifyOtp(selectedEvent.eventid)}
+                        disabled={isVerifyingOtp || otp.join("").length !== 6}
+                        className="flex-1"
+                      >
+                        {isVerifyingOtp ? "Verifying..." : "Verify & Register"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <CheckCircle className="h-16 w-16 text-green-500" />
+                    <h4 className="font-semibold text-lg">Registration Successful!</h4>
+                    <p className="text-sm text-muted-foreground text-center">
+                      You've been successfully registered for this event.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseModal}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Modal */}
+      <Dialog open={isRatingModalOpen} onOpenChange={setIsRatingModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rate Your Experience</DialogTitle>
+            <DialogDescription>
+              How was your experience with {selectedEventForRating?.organization}?
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEventForRating && (
+            <div className="space-y-6 py-4">
+              <div>
+                <p className="font-medium mb-2">{selectedEventForRating.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(selectedEventForRating.date).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Rating (1-5 stars)
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      className="focus:outline-none"
+                    >
+                      <Star
+                        className={`h-8 w-8 ${
+                          star <= rating
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        } hover:scale-110 transition-transform`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Review (Optional)
+                </label>
+                <Textarea
+                  placeholder="Share your experience with this event..."
+                  value={review}
+                  onChange={(e) => setReview(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsRatingModalOpen(false)}
+              disabled={isSubmittingRating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitRating}
+              disabled={isSubmittingRating || rating === 0}
+            >
+              {isSubmittingRating ? "Submitting..." : "Submit Rating"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
